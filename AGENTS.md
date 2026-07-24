@@ -12,13 +12,13 @@ Device-agnostic Effect Schema generators for Modbus register values, with both E
 
 ## Commands
 
-| Action | Command |
-|--------|---------|
-| Install | `bun install` |
-| Type-check | `bun run typecheck` |
-| Test | `bun test` |
+| Action      | Command                      |
+| ----------- | ---------------------------- |
+| Install     | `bun install`                |
+| Type-check  | `bun run typecheck`          |
+| Test        | `bun test`                   |
 | Run example | `bun run examples/<name>.ts` |
-| Build | `bun run build` |
+| Build       | `bun run build`              |
 
 No build step required for development — `noEmit` is on; Bun runs `.ts` directly.
 
@@ -69,7 +69,7 @@ The engine is intentionally device-agnostic: it never imports domain brands, reg
 
 Shallow clones of key dependencies can live in `references/` for offline browsing (gitignored; re-clone if stale):
 
-| Reference | Local path | Useful subdirectory |
-|-----------|-----------|-------------------|
-| effect | `references/effect` | `packages/effect/src/` for core types |
-| effect | `references/effect` | `packages/schema/src/` for Schema APIs |
+| Reference | Local path          | Useful subdirectory                    |
+| --------- | ------------------- | -------------------------------------- |
+| effect    | `references/effect` | `packages/effect/src/` for core types  |
+| effect    | `references/effect` | `packages/schema/src/` for Schema APIs |

@@ -19,32 +19,32 @@
  * @module
  */
 
-import { Brand, Effect, ParseResult, Pretty, Schema } from "effect";
+import { Brand, Effect, ParseResult, Pretty, Schema } from 'effect';
 
 // ── Wire primitives ─────────────────────────────────────────
 
 /**
  * Branded 16-bit unsigned word for Modbus register values.
  */
-export type UInt16 = number & Brand.Brand<"UInt16">;
+export type UInt16 = number & Brand.Brand<'UInt16'>;
 
 export const UInt16 = Schema.Number.pipe(
   Schema.int(),
   Schema.nonNegative(),
   Schema.lessThanOrEqualTo(0xffff),
-  Schema.brand("UInt16"),
+  Schema.brand('UInt16'),
 );
 
 /**
  * Branded 16-bit signed word for Modbus register values.
  */
-export type Int16 = number & Brand.Brand<"Int16">;
+export type Int16 = number & Brand.Brand<'Int16'>;
 
 export const Int16 = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(-0x8000),
   Schema.lessThanOrEqualTo(0x7fff),
-  Schema.brand("Int16"),
+  Schema.brand('Int16'),
 );
 
 // ── Read-only encoder ──────────────────────────────────────
@@ -64,10 +64,7 @@ export const readOnlyEncodeFailure = (
   registerName: string,
   actual: unknown,
   ast: ConstructorParameters<typeof ParseResult.Type>[0],
-) =>
-  Effect.fail(
-    new ParseResult.Type(ast, actual, `${registerName} is read only`),
-  );
+) => Effect.fail(new ParseResult.Type(ast, actual, `${registerName} is read only`));
 
 const bit = (n: number): number => 1 << n;
 
@@ -87,13 +84,7 @@ export interface RegisterMeta {
   readonly description?: string;
 }
 
-const REGISTER_META_KEYS = new Set([
-  "name",
-  "unit",
-  "range",
-  "default",
-  "description",
-]);
+const REGISTER_META_KEYS = new Set(['name', 'unit', 'range', 'default', 'description']);
 
 const formatExtraLines = (meta: RegisterMeta): string[] => {
   const lines: string[] = [];
@@ -108,7 +99,7 @@ const formatExtraLines = (meta: RegisterMeta): string[] => {
 };
 
 const formatRegister = (register: number): string =>
-  `0x${register.toString(16).toUpperCase().padStart(4, "0")}`;
+  `0x${register.toString(16).toUpperCase().padStart(4, '0')}`;
 
 const formatMeta = (register: number, meta: RegisterMeta): string =>
   [
@@ -118,13 +109,9 @@ const formatMeta = (register: number, meta: RegisterMeta): string =>
     `Default: ${meta.default}`,
     `Unit: ${meta.unit}`,
     ...formatExtraLines(meta),
-  ].join("\n");
+  ].join('\n');
 
-const formatScaledMeta = (
-  register: number,
-  meta: RegisterMeta,
-  factor: number,
-): string =>
+const formatScaledMeta = (register: number, meta: RegisterMeta, factor: number): string =>
   [
     meta.name,
     `Register: ${formatRegister(register)}`,
@@ -133,7 +120,7 @@ const formatScaledMeta = (
     `Default: ${meta.default}`,
     `Unit: ${meta.unit}`,
     ...formatExtraLines(meta),
-  ].join("\n");
+  ].join('\n');
 
 const formatEnumMeta = (
   register: number,
@@ -148,7 +135,7 @@ const formatEnumMeta = (
     `Default: ${meta.default}`,
     `Unit: ${meta.unit}`,
     ...formatExtraLines(meta),
-  ].join("\n");
+  ].join('\n');
 
 const formatBitfieldMeta = (register: number, meta: RegisterMeta): string =>
   formatMeta(register, meta);
@@ -158,9 +145,7 @@ const formatLookupMeta = (register: number, meta: RegisterMeta): string =>
 
 // ── Convenience helpers ────────────────────────────────────
 
-const makeEntry = <S extends Schema.Schema<any, any>>(
-  schema: S,
-): ParamEntry<S> => ({
+const makeEntry = <S extends Schema.Schema<any, any>>(schema: S): ParamEntry<S> => ({
   schema,
   decode: Schema.decodeUnknown(schema),
   encode: Schema.encode(schema),
@@ -175,12 +160,12 @@ const makeEntry = <S extends Schema.Schema<any, any>>(
  * Identifies which schema factory created/would create the ParamEntry.
  */
 export enum ParamKind {
-  UInt16 = "UInt16",
-  Scaled = "Scaled",
-  SignedScaled = "SignedScaled",
-  Enum = "Enum",
-  Bitfield = "Bitfield",
-  Lookup = "Lookup",
+  UInt16 = 'UInt16',
+  Scaled = 'Scaled',
+  SignedScaled = 'SignedScaled',
+  Enum = 'Enum',
+  Bitfield = 'Bitfield',
+  Lookup = 'Lookup',
 }
 
 // ── Config object types ──────────────────────────────────────
@@ -194,8 +179,7 @@ export interface ConfigBase<R extends RegisterMeta = RegisterMeta> {
   readonly meta: R;
 }
 
-export interface UInt16ParamConfig<R extends RegisterMeta = RegisterMeta>
-  extends ConfigBase<R> {
+export interface UInt16ParamConfig<R extends RegisterMeta = RegisterMeta> extends ConfigBase<R> {
   readonly kind: ParamKind.UInt16;
   readonly readOnly?: boolean;
 }
@@ -264,9 +248,7 @@ type SchemaEncoded<S> = S extends Schema.Schema<any, infer I, any> ? I : never;
 
 export type ParamEntry<S extends Schema.Schema<any, any>> = {
   readonly schema: S;
-  readonly decode: (
-    raw: unknown,
-  ) => Effect.Effect<SchemaType<S>, ParseResult.ParseError, never>;
+  readonly decode: (raw: unknown) => Effect.Effect<SchemaType<S>, ParseResult.ParseError, never>;
   readonly encode: (
     value: SchemaType<S>,
   ) => Effect.Effect<SchemaEncoded<S>, ParseResult.ParseError, never>;
@@ -322,10 +304,7 @@ export const makeScaledParam = <A = number>(
     readonly readOnly?: boolean;
   },
 ): ParamEntry<Schema.Schema<A, number>> => {
-  const domain = (opts?.domain ?? Schema.Number) as unknown as Schema.Schema<
-    A,
-    A
-  >;
+  const domain = (opts?.domain ?? Schema.Number) as unknown as Schema.Schema<A, A>;
   const readOnly = opts?.readOnly ?? false;
   const description = formatScaledMeta(register, meta, factor);
   const schema = UInt16.pipe(
@@ -334,10 +313,7 @@ export const makeScaledParam = <A = number>(
       decode: (raw: number) => ParseResult.succeed(raw * factor),
       encode: readOnly
         ? (value: A, _, ast) => readOnlyEncodeFailure(meta.name, value, ast)
-        : (value: A) =>
-            ParseResult.succeed(
-              Math.round((value as unknown as number) / factor),
-            ),
+        : (value: A) => ParseResult.succeed(Math.round((value as unknown as number) / factor)),
       strict: false,
     }),
   ) as unknown as Schema.Schema<A, number>;
@@ -358,10 +334,7 @@ export const makeSignedScaledParam = <A = number>(
     readonly readOnly?: boolean;
   },
 ): ParamEntry<Schema.Schema<A, number>> => {
-  const domain = (opts?.domain ?? Schema.Number) as unknown as Schema.Schema<
-    A,
-    A
-  >;
+  const domain = (opts?.domain ?? Schema.Number) as unknown as Schema.Schema<A, A>;
   const readOnly = opts?.readOnly ?? false;
   const description = formatScaledMeta(register, meta, factor);
   const schema = UInt16.pipe(
@@ -398,11 +371,7 @@ export const makeEnumParam = <Domain extends string>(
   const readOnly = opts?.readOnly ?? false;
   const schema = UInt16.pipe(
     Schema.annotations({
-      description: formatEnumMeta(
-        register,
-        meta,
-        labels as Record<number, string>,
-      ),
+      description: formatEnumMeta(register, meta, labels as Record<number, string>),
     }),
     Schema.transformOrFail(Schema.Literal(...values), {
       decode: (raw: number, _, ast) => {
@@ -410,26 +379,17 @@ export const makeEnumParam = <Domain extends string>(
         return label !== undefined
           ? ParseResult.succeed(label)
           : ParseResult.fail(
-              new ParseResult.Type(
-                ast,
-                raw,
-                `Unknown enum value ${raw} for ${meta.name}`,
-              ),
+              new ParseResult.Type(ast, raw, `Unknown enum value ${raw} for ${meta.name}`),
             );
       },
       encode: readOnly
-        ? (value: Domain, _, ast) =>
-            readOnlyEncodeFailure(meta.name, value, ast)
+        ? (value: Domain, _, ast) => readOnlyEncodeFailure(meta.name, value, ast)
         : (value: Domain, _, ast) => {
             const entry = Object.entries(labels).find(([, v]) => v === value);
             return entry
               ? ParseResult.succeed(Number(entry[0]))
               : ParseResult.fail(
-                  new ParseResult.Type(
-                    ast,
-                    value,
-                    `Invalid value "${value}" for ${meta.name}`,
-                  ),
+                  new ParseResult.Type(ast, value, `Invalid value "${value}" for ${meta.name}`),
                 );
           },
       strict: false,
@@ -453,9 +413,7 @@ export type AnyBitfieldClass = new (fields: any) => any;
  * construction with a partial record of booleans.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyPatchClass = new (
-  props?: Partial<{ readonly [k: string]: boolean }>,
-) => any;
+export type AnyPatchClass = new (props?: Partial<{ readonly [k: string]: boolean }>) => any;
 
 /**
  * A bitfield entry adds a generated `patch` schema (all-optional booleans) and
@@ -500,24 +458,17 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
     Schema.transformOrFail(
       flagsClass as unknown as Schema.Schema<
         Flags,
-        Schema.Schema<Flags, Flags> extends Schema.Schema<any, infer I, any>
-          ? I
-          : never
+        Schema.Schema<Flags, Flags> extends Schema.Schema<any, infer I, any> ? I : never
       >,
       {
         decode: (word: number) =>
           ParseResult.succeed(
-            new (flagsClass as unknown as new (
-              f: Record<string, boolean>,
-            ) => Flags)(
-              Object.fromEntries(
-                keys.map((k) => [k, (word & bit(layout[k as string]!)) !== 0]),
-              ),
+            new (flagsClass as unknown as new (f: Record<string, boolean>) => Flags)(
+              Object.fromEntries(keys.map((k) => [k, (word & bit(layout[k as string]!)) !== 0])),
             ),
           ),
         encode: readOnly
-          ? (value: Flags, _, ast) =>
-              readOnlyEncodeFailure(meta.name, value, ast)
+          ? (value: Flags, _, ast) => readOnlyEncodeFailure(meta.name, value, ast)
           : (value: Flags, _, ast) => {
               let word = 0;
               for (const k of keys) {
@@ -526,11 +477,7 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
               return Number.isInteger(word) && word >= 0 && word <= 0xffff
                 ? ParseResult.succeed(word)
                 : ParseResult.fail(
-                    new ParseResult.Type(
-                      ast,
-                      value,
-                      `${meta.name} is out of UInt16 range`,
-                    ),
+                    new ParseResult.Type(ast, value, `${meta.name} is out of UInt16 range`),
                   );
             },
         strict: false,
@@ -539,27 +486,19 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
   ) as unknown as Schema.Schema<Flags, number>;
 
   const patchFields: Record<string, Schema.Struct.Field> = {};
-  for (const k of keys)
-    patchFields[k as string] = Schema.optional(Schema.Boolean);
-  const patchIdentifier = `${
-    (flagsClass as { name?: string }).name ?? "Bitfield"
-  }Patch`;
+  for (const k of keys) patchFields[k as string] = Schema.optional(Schema.Boolean);
+  const patchIdentifier = `${(flagsClass as { name?: string }).name ?? 'Bitfield'}Patch`;
   const patchSchema = Schema.Class<any>(patchIdentifier)(
     patchFields as unknown as Schema.Struct.Fields,
   ) as unknown as AnyPatchClass;
 
-  const merge = (
-    base: Flags,
-    patchObj: Readonly<Record<string, boolean | undefined>>,
-  ): Flags => {
+  const merge = (base: Flags, patchObj: Readonly<Record<string, boolean | undefined>>): Flags => {
     const fields: Record<string, boolean> = {};
     for (const k of keys) {
       const p = patchObj[k as string];
       fields[k as string] = p === undefined ? (base as any)[k] : p;
     }
-    return new (flagsClass as unknown as new (
-      f: Record<string, boolean>,
-    ) => Flags)(fields);
+    return new (flagsClass as unknown as new (f: Record<string, boolean>) => Flags)(fields);
   };
 
   return {
@@ -584,17 +523,12 @@ export const makeLookupParam = <Domain extends string>(
   meta: RegisterMeta,
   opts?: { readonly domain?: Schema.Schema<Domain, any, any> },
 ): ParamEntry<Schema.Schema<Domain, number>> => {
-  const domain = (opts?.domain ?? Schema.String) as unknown as Schema.Schema<
-    Domain,
-    Domain
-  >;
+  const domain = (opts?.domain ?? Schema.String) as unknown as Schema.Schema<Domain, Domain>;
   const schema = UInt16.pipe(
     Schema.annotations({ description: formatLookupMeta(register, meta) }),
     Schema.transformOrFail(domain, {
-      decode: (raw: number) =>
-        ParseResult.succeed(labels[raw] ?? fallback(raw)),
-      encode: (value: Domain, _, ast) =>
-        readOnlyEncodeFailure(meta.name, value, ast),
+      decode: (raw: number) => ParseResult.succeed(labels[raw] ?? fallback(raw)),
+      encode: (value: Domain, _, ast) => readOnlyEncodeFailure(meta.name, value, ast),
       strict: false,
     }),
   ) as unknown as Schema.Schema<Domain, number>;
@@ -603,9 +537,7 @@ export const makeLookupParam = <Domain extends string>(
 
 // ── fromConfig dispatch ──────────────────────────────────────
 
-export function fromConfig<C extends ParamConfig>(
-  config: C,
-): ParamEntryOfConfig<C>;
+export function fromConfig<C extends ParamConfig>(config: C): ParamEntryOfConfig<C>;
 export function fromConfig(config: ParamConfig): unknown {
   switch (config.kind) {
     case ParamKind.UInt16:
@@ -616,37 +548,22 @@ export function fromConfig(config: ParamConfig): unknown {
         readOnly: config.readOnly,
       });
     case ParamKind.SignedScaled:
-      return makeSignedScaledParam(
-        config.register,
-        config.factor,
-        config.meta,
-        {
-          domain: config.domain,
-          readOnly: config.readOnly,
-        },
-      );
+      return makeSignedScaledParam(config.register, config.factor, config.meta, {
+        domain: config.domain,
+        readOnly: config.readOnly,
+      });
     case ParamKind.Enum:
       return makeEnumParam(config.register, config.labels, config.meta, {
         readOnly: config.readOnly,
       });
     case ParamKind.Bitfield:
-      return makeBitfieldParam(
-        config.register,
-        config.flagsClass,
-        config.bitLayout,
-        config.meta,
-        { readOnly: config.readOnly },
-      );
+      return makeBitfieldParam(config.register, config.flagsClass, config.bitLayout, config.meta, {
+        readOnly: config.readOnly,
+      });
     case ParamKind.Lookup:
-      return makeLookupParam(
-        config.register,
-        config.labels,
-        config.fallback,
-        config.meta,
-        {
-          domain: config.domain,
-        },
-      );
+      return makeLookupParam(config.register, config.labels, config.fallback, config.meta, {
+        domain: config.domain,
+      });
     default:
       return undefined;
   }

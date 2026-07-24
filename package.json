@@ -1,24 +1,14 @@
 {
   "name": "modbus-schema",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Device-agnostic Effect Schema generators for Modbus register values, with both Effect-native and synchronous APIs.",
-  "type": "module",
+  "license": "GPL-3.0",
   "files": [
     "src/**/*.ts",
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
-  "publishConfig": {
-    "access": "public",
-    "provenance": true,
-    "exports": {
-      "./package.json": "./package.json",
-      ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
-  },
+  "type": "module",
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -26,23 +16,41 @@
       "default": "./src/index.ts"
     }
   },
+  "publishConfig": {
+    "exports": {
+      "./package.json": "./package.json",
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
+    "build": "rm -rf ./dist && bun build ./index.ts --outdir ./dist --target node --external effect && tsc --noEmit false --emitDeclarationOnly --outDir ./dist --rootDir . --project tsconfig.build.json",
+    "docs": "typedoc",
+    "format": "oxfmt --check",
+    "format:fix": "oxfmt",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "prepare": "husky",
     "test": "bun test src/",
     "test:coverage": "bun test --coverage src/",
-    "typecheck": "tsc --noEmit",
-    "build": "rm -rf ./dist && bun build ./index.ts --outdir ./dist --target node --external effect && tsc --noEmit false --emitDeclarationOnly --outDir ./dist --rootDir . --project tsconfig.build.json",
-    "docs": "typedoc"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@effect/language-service": "^0.86.3",
     "@types/bun": "latest",
     "effect": "^3.21.4",
     "fallow": "^2.104.0",
+    "husky": "^9.1.7",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "effect": "^3.21.4"
-  },
-  "license": "GPL-3.0"
+  }
 }

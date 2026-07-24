@@ -8,12 +8,13 @@
  * @example bun run examples/bitfield-flags.ts
  */
 
-import { Schema } from "effect";
-import { makeBitfieldParam } from "../index";
+import { Schema } from 'effect';
+
+import { makeBitfieldParam } from '../index';
 
 // ── Flag class ─────────────────────────────────────────────────
 
-class StatusFlags extends Schema.Class<StatusFlags>("StatusFlags")({
+class StatusFlags extends Schema.Class<StatusFlags>('StatusFlags')({
   run: Schema.Boolean,
   reverse: Schema.Boolean,
   fault: Schema.Boolean,
@@ -30,16 +31,16 @@ const statusLayout = {
 // ── Build the bitfield entry ───────────────────────────────────
 
 const status = makeBitfieldParam(0x2520, StatusFlags, statusLayout, {
-  name: "Status Register",
-  unit: "-",
-  range: "bitfield",
-  default: "0",
+  name: 'Status Register',
+  unit: '-',
+  range: 'bitfield',
+  default: '0',
 });
 
 // ── Decode a raw word ──────────────────────────────────────────
 
 const decoded = status.decodeSync(0b0000_1010);
-console.log("Decoded status:", {
+console.log('Decoded status:', {
   run: decoded.run,
   reverse: decoded.reverse,
   fault: decoded.fault,
@@ -58,7 +59,7 @@ const current = new StatusFlags({
 const patch = new status.patch({ run: true });
 const merged = status.merge(current, patch);
 
-console.log("Merged status:", {
+console.log('Merged status:', {
   run: merged.run,
   reverse: merged.reverse,
   fault: merged.fault,
@@ -67,4 +68,4 @@ console.log("Merged status:", {
 // { run: true, reverse: true, fault: false, warning: false }
 
 const wire = status.encodeSync(merged);
-console.log("Encoded wire:", wire.toString(2).padStart(16, "0")); // 0000000000000011
+console.log('Encoded wire:', wire.toString(2).padStart(16, '0')); // 0000000000000011

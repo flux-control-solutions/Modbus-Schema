@@ -8,40 +8,50 @@
  * @example bun run examples/branded-types.ts
  */
 
-import { Brand, Effect, Schema } from "effect";
-import { makeScaledParam, makeSignedScaledParam } from "modbus-schema";
+import { Brand, Effect, Schema } from 'effect';
+import { makeScaledParam, makeSignedScaledParam } from 'modbus-schema';
 
 // ── Domain brands ──────────────────────────────────────────────
 
-export type FrequencyHz = number & Brand.Brand<"FrequencyHz">;
+export type FrequencyHz = number & Brand.Brand<'FrequencyHz'>;
 export const FrequencyHz = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),
   Schema.lessThanOrEqualTo(599),
-  Schema.brand("FrequencyHz"),
+  Schema.brand('FrequencyHz'),
 );
 
-export type TorquePercent = number & Brand.Brand<"TorquePercent">;
+export type TorquePercent = number & Brand.Brand<'TorquePercent'>;
 export const TorquePercent = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(-100),
   Schema.lessThanOrEqualTo(100),
-  Schema.brand("TorquePercent"),
+  Schema.brand('TorquePercent'),
 );
 
 // ── Branded scaled parameters ──────────────────────────────────
 
-const frequency = makeScaledParam<FrequencyHz>(0x0102, 0.1, {
-  name: "Frequency Command",
-  unit: "Hz",
-  range: "0.00–599.00",
-  default: "0.00",
-}, { domain: FrequencyHz });
+const frequency = makeScaledParam<FrequencyHz>(
+  0x0102,
+  0.1,
+  {
+    name: 'Frequency Command',
+    unit: 'Hz',
+    range: '0.00–599.00',
+    default: '0.00',
+  },
+  { domain: FrequencyHz },
+);
 
-const torque = makeSignedScaledParam<TorquePercent>(0x0103, 1 / 81.92, {
-  name: "Torque Command",
-  unit: "%",
-  range: "–100.0–100.0",
-  default: "0.0",
-}, { domain: TorquePercent });
+const torque = makeSignedScaledParam<TorquePercent>(
+  0x0103,
+  1 / 81.92,
+  {
+    name: 'Torque Command',
+    unit: '%',
+    range: '–100.0–100.0',
+    default: '0.0',
+  },
+  { domain: TorquePercent },
+);
 
 // ── Effect API ─────────────────────────────────────────────────
 
@@ -60,12 +70,12 @@ Effect.runSync(program);
 
 // ── Synchronous API ────────────────────────────────────────────
 
-console.log("Sync frequency decode:", frequency.decodeSync(5990)); // 599
-console.log("Sync torque decode:", torque.decodeSync(-8192)); // -100
+console.log('Sync frequency decode:', frequency.decodeSync(5990)); // 599
+console.log('Sync torque decode:', torque.decodeSync(-8192)); // -100
 
 // Out-of-range values are rejected by the branded domain schema.
 try {
   frequency.encodeSync(600 as FrequencyHz); // exceeds 599 Hz
 } catch (err) {
-  console.log("Encode rejected out-of-range frequency:", (err as Error).message);
+  console.log('Encode rejected out-of-range frequency:', (err as Error).message);
 }

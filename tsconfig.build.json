@@ -8,6 +8,6 @@
     "examples",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "**/__tests__/**",
+    "**/__tests__/**"
   ]
 }

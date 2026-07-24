@@ -15,14 +15,14 @@ Requires `effect` as a peer dependency.
 ### Effect-native API
 
 ```ts
-import { Effect } from "effect";
-import { makeScaledParam } from "modbus-schema";
+import { Effect } from 'effect';
+import { makeScaledParam } from 'modbus-schema';
 
 const entry = makeScaledParam(0x0102, 0.1, {
-  name: "Maximum Output Frequency",
-  unit: "Hz",
-  range: "4.8~599.0",
-  default: "50.0",
+  name: 'Maximum Output Frequency',
+  unit: 'Hz',
+  range: '4.8~599.0',
+  default: '50.0',
 });
 
 const program = Effect.gen(function* () {
@@ -38,13 +38,13 @@ Effect.runSync(program);
 ### Synchronous API
 
 ```ts
-import { makeScaledParam } from "modbus-schema";
+import { makeScaledParam } from 'modbus-schema';
 
 const entry = makeScaledParam(0x0102, 0.1, {
-  name: "Maximum Output Frequency",
-  unit: "Hz",
-  range: "4.8~599.0",
-  default: "50.0",
+  name: 'Maximum Output Frequency',
+  unit: 'Hz',
+  range: '4.8~599.0',
+  default: '50.0',
 });
 
 const value = entry.decodeSync(500); // 50.0
@@ -55,25 +55,25 @@ const wire = entry.encodeSync(60.0); // 600
 
 Each factory returns a `ParamEntry` with `schema`, `decode`, `encode`, `decodeSync`, `encodeSync`, and `formatted`.
 
-| Factory | Description |
-|---------|-------------|
-| `makeParam(register, meta)` | Simple UInt16 pass-through |
-| `makeScaledParam(register, factor, meta)` | Unsigned scaled value |
-| `makeSignedScaledParam(register, factor, meta)` | Signed scaled value using two's complement |
-| `makeEnumParam(register, labels, meta)` | Enum label ↔ wire integer |
-| `makeBitfieldParam(register, flagsClass, bitLayout, meta)` | Boolean flags packed into a word |
-| `makeLookupParam(register, labels, fallback, meta)` | Decode-only lookup table with fallback |
-| `fromConfig(config)` | Dispatch to the correct factory from a `ParamConfig` |
+| Factory                                                    | Description                                          |
+| ---------------------------------------------------------- | ---------------------------------------------------- |
+| `makeParam(register, meta)`                                | Simple UInt16 pass-through                           |
+| `makeScaledParam(register, factor, meta)`                  | Unsigned scaled value                                |
+| `makeSignedScaledParam(register, factor, meta)`            | Signed scaled value using two's complement           |
+| `makeEnumParam(register, labels, meta)`                    | Enum label ↔ wire integer                            |
+| `makeBitfieldParam(register, flagsClass, bitLayout, meta)` | Boolean flags packed into a word                     |
+| `makeLookupParam(register, labels, fallback, meta)`        | Decode-only lookup table with fallback               |
+| `fromConfig(config)`                                       | Dispatch to the correct factory from a `ParamConfig` |
 
 ## Development
 
-| Action | Command |
-|--------|---------|
-| Install | `bun install` |
-| Type-check | `bun run typecheck` |
-| Test | `bun test` |
+| Action      | Command                      |
+| ----------- | ---------------------------- |
+| Install     | `bun install`                |
+| Type-check  | `bun run typecheck`          |
+| Test        | `bun test`                   |
 | Run example | `bun run examples/<name>.ts` |
-| Build | `bun run build` |
+| Build       | `bun run build`              |
 
 No build step required for development — `noEmit` is on; Bun runs `.ts` directly.
 
