@@ -8,8 +8,8 @@
  * @example bun run examples/error-handling.ts
  */
 
+import { makeScaledParam } from '@flux-control/modbus-schema';
 import { Effect, ParseResult, Schema } from 'effect';
-import { makeScaledParam } from 'modbus-schema';
 
 const Voltage = Schema.Number.pipe(
   Schema.greaterThanOrEqualTo(0),

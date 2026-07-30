@@ -8,8 +8,8 @@
  * @example bun run examples/lookup-table.ts
  */
 
+import { makeLookupParam } from '@flux-control/modbus-schema';
 import { Brand, Schema } from 'effect';
-import { makeLookupParam } from 'modbus-schema';
 
 // ── Branded lookup domain ──────────────────────────────────────
 

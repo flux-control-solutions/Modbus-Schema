@@ -8,8 +8,8 @@
  * @example bun run examples/branded-types.ts
  */
 
+import { makeScaledParam, makeSignedScaledParam } from '@flux-control/modbus-schema';
 import { Brand, Effect, Schema } from 'effect';
-import { makeScaledParam, makeSignedScaledParam } from 'modbus-schema';
 
 // ── Domain brands ──────────────────────────────────────────────
 

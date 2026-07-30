@@ -8,7 +8,6 @@
  * @example bun run examples/from-config.ts
  */
 
-import { Schema } from 'effect';
 import {
   ParamKind,
   type RegisterMeta,
@@ -16,7 +15,8 @@ import {
   type SignedScaledParamConfig,
   type EnumParamConfig,
   fromConfig,
-} from 'modbus-schema';
+} from '@flux-control/modbus-schema';
+import { Schema } from 'effect';
 
 // ── Domain brand ───────────────────────────────────────────────
 

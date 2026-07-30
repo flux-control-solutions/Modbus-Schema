@@ -1,5 +1,5 @@
 /**
- * # modbus-schema
+ * # @flux-control/modbus-schema
  *
  * Device-agnostic Effect Schema generators for Modbus register values.
  *

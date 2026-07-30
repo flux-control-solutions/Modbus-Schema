@@ -1,11 +1,15 @@
-# modbus-schema
+# @flux-control/modbus-schema
 
 **Device-agnostic Effect Schema generators for Modbus register values.** This library produces bidirectional schemas between 16-bit Modbus wire values (`UInt16` / `Int16`) and domain types. Every generator returns both **Effect-native** (`decode` / `encode`) and **synchronous** (`decodeSync` / `encodeSync`) APIs, so the Effect runtime is optional for consumers.
+
+For the complete API reference, see the [GitHub Pages documentation](https://flux-control-solutions.github.io/Modbus-Schema/).
+
+> This project is under active development. Its API may change before the 1.0 release.
 
 ## Install
 
 ```sh
-bun add modbus-schema
+bun add @flux-control/modbus-schema
 ```
 
 Requires `effect` as a peer dependency.
@@ -16,7 +20,7 @@ Requires `effect` as a peer dependency.
 
 ```ts
 import { Effect } from 'effect';
-import { makeScaledParam } from 'modbus-schema';
+import { makeScaledParam } from '@flux-control/modbus-schema';
 
 const entry = makeScaledParam(0x0102, 0.1, {
   name: 'Maximum Output Frequency',
@@ -38,7 +42,7 @@ Effect.runSync(program);
 ### Synchronous API
 
 ```ts
-import { makeScaledParam } from 'modbus-schema';
+import { makeScaledParam } from '@flux-control/modbus-schema';
 
 const entry = makeScaledParam(0x0102, 0.1, {
   name: 'Maximum Output Frequency',

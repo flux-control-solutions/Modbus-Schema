@@ -3,7 +3,7 @@
   "entryPoints": ["index.ts"],
   "tsconfig": "./tsconfig.json",
   "out": "docs-site",
-  "name": "modbus-schema",
+  "name": "@flux-control/modbus-schema",
   "readme": "README.md",
   "cleanOutputDir": true,
   "excludePrivate": true,

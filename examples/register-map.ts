@@ -8,13 +8,13 @@
  * @example bun run examples/register-map.ts
  */
 
-import { Brand, Effect, Schema } from 'effect';
 import {
   makeBitfieldParam,
   makeLookupParam,
   makeScaledParam,
   makeSignedScaledParam,
-} from 'modbus-schema';
+} from '@flux-control/modbus-schema';
+import { Brand, Effect, Schema } from 'effect';
 
 // ── Domain brands ──────────────────────────────────────────────
 
