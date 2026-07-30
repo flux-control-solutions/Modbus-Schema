@@ -29,9 +29,8 @@ jobs:
       - run: bun run test
       - run: bun run build
       - id: changesets
-        uses: changesets/action@v2.0.0-next.3
+        uses: changesets/action@v1.9.0
         with:
-          version-script: bun run version
-          publish-script: bun run release
-          create-github-releases: true
-          push-git-tags: true
+          version: bun run version
+          publish: bun run release
+          createGithubReleases: true
