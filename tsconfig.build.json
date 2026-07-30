@@ -5,6 +5,7 @@
     "references",
     ".opencode",
     "dist",
+    "docs-site",
     "examples",
     "**/*.test.ts",
     "**/*.spec.ts",

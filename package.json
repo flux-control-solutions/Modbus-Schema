@@ -4,7 +4,6 @@
   "description": "Device-agnostic Effect Schema generators for Modbus register values, with both Effect-native and synchronous APIs.",
   "license": "GPL-3.0",
   "files": [
-    "src/**/*.ts",
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
@@ -24,8 +23,7 @@
         "default": "./dist/index.js"
       }
     },
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "scripts": {
     "build": "rm -rf ./dist && bun build ./index.ts --outdir ./dist --target node --external effect && tsc --noEmit false --emitDeclarationOnly --outDir ./dist --rootDir . --project tsconfig.build.json",
