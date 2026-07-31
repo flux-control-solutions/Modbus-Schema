@@ -1,6 +1,6 @@
 {
   "name": "@flux-control/modbus-schema",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Device-agnostic Effect Schema generators for Modbus register values, with both Effect-native and synchronous APIs.",
   "license": "GPL-3.0",
   "files": [
