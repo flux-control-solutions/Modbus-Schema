@@ -15,6 +15,9 @@
     // Bundler mode
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,
+    "paths": {
+      "@flux-control/modbus-schema": ["./index.ts"]
+    },
 
     // Best practices
     "strict": true,
