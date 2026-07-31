@@ -3,6 +3,10 @@
   "version": "0.1.1",
   "description": "Device-agnostic Effect Schema generators for Modbus register values, with both Effect-native and synchronous APIs.",
   "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flux-control-solutions/Modbus-Schema.git"
+  },
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts"
