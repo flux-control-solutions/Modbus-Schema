@@ -14,22 +14,20 @@ import { Brand, Effect, Schema } from 'effect';
 // ── Domain brands ──────────────────────────────────────────────
 
 export type FrequencyHz = number & Brand.Brand<'FrequencyHz'>;
-export const FrequencyHz = Schema.Number.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(599),
-  Schema.brand('FrequencyHz'),
-);
+export const FrequencyHz = Schema.Number.check(
+  Schema.isGreaterThanOrEqualTo(0),
+  Schema.isLessThanOrEqualTo(599),
+).pipe(Schema.brand('FrequencyHz'));
 
 export type TorquePercent = number & Brand.Brand<'TorquePercent'>;
-export const TorquePercent = Schema.Number.pipe(
-  Schema.greaterThanOrEqualTo(-100),
-  Schema.lessThanOrEqualTo(100),
-  Schema.brand('TorquePercent'),
-);
+export const TorquePercent = Schema.Number.check(
+  Schema.isGreaterThanOrEqualTo(-100),
+  Schema.isLessThanOrEqualTo(100),
+).pipe(Schema.brand('TorquePercent'));
 
 // ── Branded scaled parameters ──────────────────────────────────
 
-const frequency = makeScaledParam<FrequencyHz>(
+const frequency = makeScaledParam(
   0x0102,
   0.1,
   {
@@ -41,7 +39,7 @@ const frequency = makeScaledParam<FrequencyHz>(
   { domain: FrequencyHz },
 );
 
-const torque = makeSignedScaledParam<TorquePercent>(
+const torque = makeSignedScaledParam(
   0x0103,
   1 / 81.92,
   {
@@ -59,7 +57,7 @@ const program = Effect.gen(function* () {
   const hz = yield* frequency.decode(5000);
   yield* Effect.sync(() => console.log(`Frequency: ${hz} Hz`)); // 50.00 Hz
 
-  const pct = yield* torque.decode(-4096);
+  const pct = yield* torque.decode(61440); // 0xF000 = -4096 as two's complement
   yield* Effect.sync(() => console.log(`Torque: ${pct.toFixed(1)}%`)); // -50.0%
 
   const wire = yield* torque.encode(75 as TorquePercent);
@@ -71,7 +69,7 @@ Effect.runSync(program);
 // ── Synchronous API ────────────────────────────────────────────
 
 console.log('Sync frequency decode:', frequency.decodeSync(5990)); // 599
-console.log('Sync torque decode:', torque.decodeSync(-8192)); // -100
+console.log('Sync torque decode:', torque.decodeSync(57344)); // 0xE000 = -8192 -> -100
 
 // Out-of-range values are rejected by the branded domain schema.
 try {

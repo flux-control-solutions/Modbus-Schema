@@ -6,7 +6,7 @@ Device-agnostic Effect Schema generators for Modbus register values, with both E
 
 - **Runtime**: Bun only — never use Node, npm, pnpm, yarn, or vite.
 - **Language**: TypeScript 6 (ESNext, `verbatimModuleSyntax`, bundler resolution, `module: "Preserve"`).
-- **Core lib**: `effect` (^3.21.4).
+- **Core lib**: `effect` (^4.0.0-rc.109). Effect v4 is still a release candidate.
 - **LSP**: `@effect/language-service` plugin in `tsconfig.json` `compilerOptions.plugins`.
 - **License**: GPL-3.0.
 
@@ -46,7 +46,7 @@ examples/
 - **`ParamEntry`** — Contains:
   - `schema` — the Effect `Schema`
   - `decode` / `encode` — Effect-native operations
-  - `decodeSync` / `encodeSync` — synchronous operations that throw `ParseResult.ParseError` on failure
+  - `decodeSync` / `encodeSync` — synchronous operations that throw `Schema.SchemaError` on failure
   - `formatted` — pretty-print helper
 - **`BitfieldParamEntry`** — Extends `ParamEntry` with a generated `Patch` class and `merge` function for read-modify-write semantics.
 - **`ParamConfig` / `ParamKind`** — Discriminated config objects consumed by `fromConfig`.
@@ -56,10 +56,13 @@ The engine is intentionally device-agnostic: it never imports domain brands, reg
 
 ## Conventions
 
-- Follow `effect` idioms: `Schema`, `Brand`, `ParseResult`, `Pretty`.
+- Follow `effect` v4 idioms: `Schema`, `Brand`, `SchemaIssue`, `SchemaTransformation`.
+- `ParseResult` and `Pretty` do not exist in v4 — use `Schema.SchemaError` / `SchemaIssue` and `Schema.toFormatter`.
 - Use `Bun.test` / `import { test, expect } from "bun:test"` for tests.
 - Always `import type` for type-only imports (`verbatimModuleSyntax`).
 - Sync APIs use Effect Schema's built-in `Schema.decodeUnknownSync` / `Schema.encodeSync` and throw on parse errors.
+- Factories return their concrete inferred schema type; never widen a return to `Schema.Codec<…>`.
+- Read register descriptions with `Schema.resolveAnnotations(entry.schema)?.description`.
 
 ## Tooling
 
@@ -69,7 +72,7 @@ The engine is intentionally device-agnostic: it never imports domain brands, reg
 
 Shallow clones of key dependencies can live in `references/` for offline browsing (gitignored; re-clone if stale):
 
-| Reference | Local path          | Useful subdirectory                    |
-| --------- | ------------------- | -------------------------------------- |
-| effect    | `references/effect` | `packages/effect/src/` for core types  |
-| effect    | `references/effect` | `packages/schema/src/` for Schema APIs |
+| Reference | Local path          | Useful subdirectory                              |
+| --------- | ------------------- | ------------------------------------------------ |
+| effect    | `references/effect` | `packages/effect/src/` for core types            |
+| effect    | `references/effect` | `packages/effect/SCHEMA.md` for the Schema guide |

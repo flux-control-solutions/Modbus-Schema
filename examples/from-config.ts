@@ -20,11 +20,10 @@ import { Schema } from 'effect';
 
 // ── Domain brand ───────────────────────────────────────────────
 
-const Voltage = Schema.Number.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(10),
-  Schema.brand('Voltage'),
-);
+const Voltage = Schema.Number.check(
+  Schema.isGreaterThanOrEqualTo(0),
+  Schema.isLessThanOrEqualTo(10),
+).pipe(Schema.brand('Voltage'));
 
 type Voltage = number & Schema.Schema.Type<typeof Voltage>;
 
@@ -57,7 +56,7 @@ const analogOutputScale = {
     default: '0.00',
     unit: 'V',
   },
-} satisfies ScaledParamConfig<RegisterMeta, Voltage>;
+} satisfies ScaledParamConfig<RegisterMeta, typeof Voltage>;
 
 const pulseInputBias = {
   register: 0x0002,
