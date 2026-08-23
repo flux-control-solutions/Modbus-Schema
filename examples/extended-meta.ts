@@ -8,6 +8,8 @@
  * @example bun run examples/extended-meta.ts
  */
 
+import { Schema } from 'effect';
+
 import {
   ParamKind,
   type RegisterMeta,
@@ -49,28 +51,9 @@ console.log('Decoded value:', pidGain.decodeSync(5000)); // 50
 console.log('Encoded wire:', pidGain.encodeSync(75.25)); // 7525
 
 // Extra fields (code, group, page) are rendered in the schema description.
-// Walk all AST nodes to find it (annotations live on an inner Refinement).
-const findDescription = (node: unknown): string | undefined => {
-  if (!node || typeof node !== 'object') return undefined;
-  const n = node as Record<string, unknown>;
-  if (n.annotations) {
-    const ann = n.annotations as Record<symbol, unknown>;
-    const sym = Object.getOwnPropertySymbols(ann).find((s) =>
-      s.description?.includes('Description'),
-    );
-    if (sym) return String(ann[sym]);
-  }
-  for (const val of Object.values(n)) {
-    if (val && typeof val === 'object') {
-      const found = findDescription(val);
-      if (found) return found;
-    }
-  }
-  return undefined;
-};
-
+// v4 exposes annotations as a plain object, so no AST walking is needed.
 console.log('\nSchema description:');
-console.log(findDescription(pidGain.schema.ast));
+console.log(Schema.resolveAnnotations(pidGain.schema)?.description);
 
 // ── Also works with fromConfig ────────────────────────────────
 

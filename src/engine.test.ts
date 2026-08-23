@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { Effect, ParseResult, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import * as P from './index';
 
@@ -18,31 +18,17 @@ const encodeFail = (encode: any, value: any): void => {
   expect(() => Effect.runSync(encode(value))).toThrow();
 };
 
-const roundTrip = <A>(entry: P.ParamEntry<Schema.Schema<A, number>>, value: A, wire: number) => {
+const roundTrip = <A>(entry: P.ParamEntry<any>, value: A, wire: number) => {
   const decoded = decodeOk(entry.decode, wire);
   expect(decoded).toBe(value);
   const encoded = encodeOk(entry.encode, value);
   expect(encoded).toBe(wire);
 };
 
-const findDescription = (ast: unknown): string | undefined => {
-  if (!ast || typeof ast !== 'object') return undefined;
-  const n = ast as Record<string, unknown>;
-  if (n.annotations) {
-    const ann = n.annotations as Record<symbol, unknown>;
-    const sym = Object.getOwnPropertySymbols(ann).find((s) =>
-      s.description?.includes('Description'),
-    );
-    if (sym) return String(ann[sym]);
-  }
-  for (const val of Object.values(n)) {
-    if (val && typeof val === 'object') {
-      const found = findDescription(val);
-      if (found) return found;
-    }
-  }
-  return undefined;
-};
+// v4 stores annotations as a plain object reachable via `resolveAnnotations`,
+// replacing v3's symbol-keyed annotations that had to be found by walking the AST.
+const findDescription = (schema: Schema.Codec<any, any>): string | undefined =>
+  Schema.resolveAnnotations(schema)?.description;
 
 // ── UInt16 param ───────────────────────────────────────────────
 
@@ -60,7 +46,7 @@ describe('UInt16Param', () => {
     meta,
   };
 
-  const entry = P.fromConfig(config) as P.ParamEntry<Schema.Schema<number, number>>;
+  const entry = P.fromConfig(config);
 
   it('decodes valid values', () => {
     expect(decodeOk(entry.decode, 0)).toBe(0);
@@ -93,20 +79,22 @@ describe('UInt16Param', () => {
     expect(typeof formatted).toBe('function');
   });
 
+  // `makeParam` decodes to the branded `UInt16`, so values crossing the typed
+  // boundary are constructed with `UInt16.make` and compared as plain numbers.
   it('decodeSync matches Effect decode', () => {
-    expect(entry.decodeSync(0)).toBe(0);
-    expect(entry.decodeSync(42)).toBe(42);
-    expect(entry.decodeSync(65535)).toBe(65535);
+    expect(entry.decodeSync(0) as number).toBe(0);
+    expect(entry.decodeSync(42) as number).toBe(42);
+    expect(entry.decodeSync(65535) as number).toBe(65535);
   });
 
   it('encodeSync matches Effect encode', () => {
-    expect(entry.encodeSync(0)).toBe(0);
-    expect(entry.encodeSync(42)).toBe(42);
-    expect(entry.encodeSync(65535)).toBe(65535);
+    expect(entry.encodeSync(P.UInt16.make(0))).toBe(0);
+    expect(entry.encodeSync(P.UInt16.make(42))).toBe(42);
+    expect(entry.encodeSync(P.UInt16.make(65535))).toBe(65535);
   });
 
   it('decodeSync throws on invalid input', () => {
-    expect(() => entry.decodeSync(-1)).toThrow(ParseResult.ParseError);
+    expect(() => entry.decodeSync(-1)).toThrow(Schema.SchemaError);
   });
 });
 
@@ -127,7 +115,7 @@ describe('ScaledParam', () => {
     meta,
   };
 
-  const entry = P.fromConfig(config) as P.ParamEntry<Schema.Schema<number, number>>;
+  const entry = P.fromConfig(config);
 
   it('decodes wire → scaled value', () => {
     expect(decodeOk(entry.decode, 0)).toBe(0);
@@ -175,7 +163,7 @@ describe('SignedScaledParam', () => {
     meta,
   };
 
-  const entry = P.fromConfig(config) as P.ParamEntry<Schema.Schema<number, number>>;
+  const entry = P.fromConfig(config);
 
   it('decodes positive wire values', () => {
     expect(decodeOk(entry.decode, 0)).toBe(0);
@@ -231,9 +219,7 @@ describe('EnumParam', () => {
     meta,
   };
 
-  const entry = P.fromConfig(config) as P.ParamEntry<
-    Schema.Schema<'V/F' | 'V/F+PG' | 'SLV' | 'SV' | 'PMSV' | 'PMSLV' | 'SLV2', number>
-  >;
+  const entry = P.fromConfig(config);
 
   it('decodes known wire values → label', () => {
     expect(decodeOk(entry.decode, 0)).toBe('V/F');
@@ -261,7 +247,7 @@ describe('EnumParam', () => {
   });
 
   it('decodeSync throws on unknown enum value', () => {
-    expect(() => entry.decodeSync(99)).toThrow(ParseResult.ParseError);
+    expect(() => entry.decodeSync(99)).toThrow(Schema.SchemaError);
   });
 });
 
@@ -356,7 +342,7 @@ describe('LookupParam', () => {
   });
 
   it('encodeSync throws with read-only error', () => {
-    expect(() => entry.encodeSync('UV' as any)).toThrow(ParseResult.ParseError);
+    expect(() => entry.encodeSync('UV' as any)).toThrow(Schema.SchemaError);
   });
 });
 
@@ -399,7 +385,7 @@ describe('extended metadata', () => {
 
     const entry = P.makeScaledParam(0x0347, 0.01, extended);
 
-    const desc = findDescription(entry.schema.ast);
+    const desc = findDescription(entry.schema);
     expect(desc).toContain('Code: 03-47');
     expect(desc).toContain('Group: 3');
     expect(desc).toContain('Page: 431');
@@ -416,15 +402,15 @@ describe('extended metadata', () => {
     };
 
     const uint16 = P.makeParam(0x1000, meta);
-    const desc1 = findDescription(uint16.schema.ast);
+    const desc1 = findDescription(uint16.schema);
     expect(desc1).toContain('Serial: A100');
 
     const enumEntry = P.makeEnumParam(0x1001, { 0: 'Off', 1: 'On' }, meta);
-    const desc2 = findDescription(enumEntry.schema.ast);
+    const desc2 = findDescription(enumEntry.schema);
     expect(desc2).toContain('Serial: A100');
 
     const lookupEntry = P.makeLookupParam(0x1002, { 1: 'FaultA' }, (r) => `Unknown(${r})`, meta);
-    const desc3 = findDescription(lookupEntry.schema.ast);
+    const desc3 = findDescription(lookupEntry.schema);
     expect(desc3).toContain('Serial: A100');
   });
 
@@ -443,7 +429,7 @@ describe('extended metadata', () => {
       meta,
     });
 
-    const desc = findDescription((entry as any).schema.ast);
+    const desc = findDescription((entry as any).schema);
     expect(desc).toContain('VendorId: 0xACME');
   });
 
@@ -458,7 +444,7 @@ describe('extended metadata', () => {
 
     const entry = P.makeScaledParam(0x3000, 1, meta, { readOnly: true });
 
-    const desc = findDescription(entry.schema.ast);
+    const desc = findDescription(entry.schema);
     expect(desc).toContain('Alarm: Overheat');
   });
 });
