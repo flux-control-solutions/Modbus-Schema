@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "modbus-schema",
+      "name": "@flux-control/modbus-schema",
       "devDependencies": {
         "@changesets/cli": "^2.31.1",
         "@effect/language-service": "0.87.2",
