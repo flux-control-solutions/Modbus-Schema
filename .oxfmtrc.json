@@ -2,7 +2,10 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     // Local agent tooling settings, not source.
-    ".claude/"
+    ".claude/",
+
+    // Vendored lint plugin, formatted by its upstream.
+    "tools/oxlint/anti-slop/"
   ],
   "semi": true,
   "singleQuote": true,

@@ -6,16 +6,37 @@ import * as P from './index';
 
 // ── Helpers ────────────────────────────────────────────────────
 
-const decodeOk = (decode: any, wire: number): any => Effect.runSync(decode(wire));
+// A decoder is built from an unknown-input parser, but a holding register
+// always decodes from one wire word, which is the input these helpers take.
+type Decoder<A> = (raw: number) => Effect.Effect<A, Schema.SchemaError>;
+type Encoder<A, I> = (value: A) => Effect.Effect<I, Schema.SchemaError>;
 
-const decodeFail = (decode: any, wire: number): void => {
+const decodeOk = <A>(decode: Decoder<A>, wire: number): A => Effect.runSync(decode(wire));
+
+const decodeFail = (decode: Decoder<unknown>, wire: number): void => {
   expect(() => Effect.runSync(decode(wire))).toThrow();
 };
 
-const encodeOk = (encode: any, value: any): number => Effect.runSync(encode(value)) as number;
+const encodeOk = <A, I>(encode: Encoder<A, I>, value: A): I => Effect.runSync(encode(value));
 
-const encodeFail = (encode: any, value: any): void => {
+/**
+ * The rejection under test is a property of the schema rather than of the
+ * value, so `value` is one the encoder's own domain accepts.
+ */
+const encodeFail = <A, I>(encode: Encoder<A, I>, value: A): void => {
   expect(() => Effect.runSync(encode(value))).toThrow();
+};
+
+/**
+ * The rejection under test is the value being outside the schema's domain,
+ * which is what the schema's own unknown-input encoder is for: it takes the
+ * value the typed encoder rules out, and rejects it for that reason.
+ */
+const encodeUnknownFail = <S extends Schema.Codec<any, any>>(
+  schema: S,
+  value: number | string,
+): void => {
+  expect(() => Effect.runSync(Schema.encodeUnknownEffect(schema)(value))).toThrow();
 };
 
 const roundTrip = <A>(entry: P.ParamEntry<any>, value: A, wire: number) => {
@@ -49,13 +70,25 @@ describe('UInt16Param', () => {
   const entry = P.fromConfig(config);
 
   it('decodes valid values', () => {
-    expect(decodeOk(entry.decode, 0)).toBe(0);
-    expect(decodeOk(entry.decode, 1)).toBe(1);
-    expect(decodeOk(entry.decode, 65535)).toBe(65535);
+    expect<number>(decodeOk(entry.decode, 0)).toBe(0);
+    expect<number>(decodeOk(entry.decode, 1)).toBe(1);
+    expect<number>(decodeOk(entry.decode, 65535)).toBe(65535);
   });
 
   it('rejects negative values', () => {
     decodeFail(entry.decode, -1);
+  });
+
+  it('validates unknown input through both decoder APIs', () => {
+    for (const raw of Schema.decodeUnknownSync(Schema.Array(Schema.Unknown))([42, '42', null])) {
+      if (raw === 42) {
+        expect<number>(Effect.runSync(entry.decode(raw))).toBe(42);
+        expect<number>(entry.decodeSync(raw)).toBe(42);
+      } else {
+        expect(() => Effect.runSync(entry.decode(raw))).toThrow(Schema.SchemaError);
+        expect(() => entry.decodeSync(raw)).toThrow(Schema.SchemaError);
+      }
+    }
   });
 
   it('rejects non-integers', () => {
@@ -63,9 +96,9 @@ describe('UInt16Param', () => {
   });
 
   it('encodes values within range', () => {
-    expect(encodeOk(entry.encode, 0)).toBe(0);
-    expect(encodeOk(entry.encode, 1)).toBe(1);
-    expect(encodeOk(entry.encode, 65535)).toBe(65535);
+    expect(encodeOk(entry.encode, P.UInt16.make(0))).toBe(0);
+    expect(encodeOk(entry.encode, P.UInt16.make(1))).toBe(1);
+    expect(encodeOk(entry.encode, P.UInt16.make(65535))).toBe(65535);
   });
 
   it('round-trips', () => {
@@ -76,15 +109,15 @@ describe('UInt16Param', () => {
 
   it('has formatted description', () => {
     const formatted = entry.formatted;
-    expect(typeof formatted).toBe('function');
+    expect(formatted).toBeInstanceOf(Function);
   });
 
   // `makeParam` decodes to the branded `UInt16`, so values crossing the typed
   // boundary are constructed with `UInt16.make` and compared as plain numbers.
   it('decodeSync matches Effect decode', () => {
-    expect(entry.decodeSync(0) as number).toBe(0);
-    expect(entry.decodeSync(42) as number).toBe(42);
-    expect(entry.decodeSync(65535) as number).toBe(65535);
+    expect<number>(entry.decodeSync(0)).toBe(0);
+    expect<number>(entry.decodeSync(42)).toBe(42);
+    expect<number>(entry.decodeSync(65535)).toBe(65535);
   });
 
   it('encodeSync matches Effect encode', () => {
@@ -238,7 +271,7 @@ describe('EnumParam', () => {
   });
 
   it('rejects invalid label on encode', () => {
-    encodeFail(entry.encode, 'INVALID' as any);
+    encodeUnknownFail(entry.schema, 'INVALID');
   });
 
   it('sync APIs round-trip enum values', () => {
@@ -316,9 +349,9 @@ describe('LookupParam', () => {
     default: '0',
   };
 
-  const entry = P.makeLookupParam(
+  const entry = P.makeLookupParam<string>(
     0x2521,
-    { 1: 'UV', 2: 'OC' } as Record<number, string>,
+    { 1: 'UV', 2: 'OC' },
     (raw) => `Unknown (${raw})`,
     meta,
   );
@@ -333,7 +366,7 @@ describe('LookupParam', () => {
   });
 
   it('encode fails with read-only error', () => {
-    encodeFail(entry.encode, 'UV' as any);
+    encodeFail(entry.encode, 'UV');
   });
 
   it('decodeSync matches Effect decode', () => {
@@ -342,7 +375,9 @@ describe('LookupParam', () => {
   });
 
   it('encodeSync throws with read-only error', () => {
-    expect(() => entry.encodeSync('UV' as any)).toThrow(Schema.SchemaError);
+    // SAFETY: `encodeSync` is deliberately handed a value outside its domain,
+    // to check that a read-only lookup register rejects every write.
+    expect(() => entry.encodeSync('UV' as never)).toThrow(Schema.SchemaError);
   });
 });
 
@@ -350,6 +385,8 @@ describe('LookupParam', () => {
 
 describe('fromConfig', () => {
   it('returns undefined for unknown ParamKind', () => {
+    // SAFETY: this reaches the dispatch branch a well-typed config cannot, so
+    // the config is deliberately built outside `ParamConfig`.
     const config = { register: 0, kind: 'Unknown', meta: {} } as any;
     expect(P.fromConfig(config)).toBeUndefined();
   });
@@ -372,6 +409,27 @@ describe('fromConfig', () => {
 // ── Extended metadata ──────────────────────────────────────────
 
 describe('extended metadata', () => {
+  it('accepts interfaces without index signatures and structured extra fields', () => {
+    interface DeviceMeta {
+      readonly name: string;
+      readonly unit: string;
+    }
+    interface ExtendedMeta extends P.RegisterMeta {
+      readonly options: readonly string[];
+      readonly details: { readonly vendor: string };
+    }
+    const meta: DeviceMeta = { name: 'Register', unit: '-' };
+    expect<number>(P.makeParam(0, meta).decodeSync(42)).toBe(42);
+    const extended: ExtendedMeta = {
+      ...meta,
+      options: ['Off', 'On'],
+      details: { vendor: 'Example' },
+    };
+    const desc = findDescription(P.makeParam(0, extended).schema);
+    expect(desc).toContain('Options: Off,On');
+    expect(desc).toContain('Details: [object Object]');
+  });
+
   it('renders extra RegisterMeta keys in the schema description', () => {
     const extended = {
       name: 'PID Gain',
@@ -429,7 +487,7 @@ describe('extended metadata', () => {
       meta,
     });
 
-    const desc = findDescription((entry as any).schema);
+    const desc = findDescription(entry.schema);
     expect(desc).toContain('VendorId: 0xACME');
   });
 
@@ -453,12 +511,12 @@ describe('extended metadata', () => {
 
 describe('ParamKind', () => {
   it('has all six values', () => {
-    expect(P.ParamKind.UInt16).toBe('UInt16' as any);
-    expect(P.ParamKind.Scaled).toBe('Scaled' as any);
-    expect(P.ParamKind.SignedScaled).toBe('SignedScaled' as any);
-    expect(P.ParamKind.Enum).toBe('Enum' as any);
-    expect(P.ParamKind.Bitfield).toBe('Bitfield' as any);
-    expect(P.ParamKind.Lookup).toBe('Lookup' as any);
+    expect<string>(P.ParamKind.UInt16).toBe('UInt16');
+    expect<string>(P.ParamKind.Scaled).toBe('Scaled');
+    expect<string>(P.ParamKind.SignedScaled).toBe('SignedScaled');
+    expect<string>(P.ParamKind.Enum).toBe('Enum');
+    expect<string>(P.ParamKind.Bitfield).toBe('Bitfield');
+    expect<string>(P.ParamKind.Lookup).toBe('Lookup');
   });
 });
 

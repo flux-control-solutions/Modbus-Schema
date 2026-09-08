@@ -67,7 +67,7 @@ export const Int16 = Schema.Number.check(
  * @param registerName - Human-readable name of the register.
  * @param actual - The value that was passed during encode.
  */
-export const readOnlyEncodeFailure = (registerName: string, actual: unknown) =>
+export const readOnlyEncodeFailure = <A>(registerName: string, actual: A) =>
   Effect.fail(new SchemaIssue.InvalidValue({ message: `${registerName} is read only` }, actual));
 
 const bit = (n: number): number => 1 << n;
@@ -90,11 +90,12 @@ export interface RegisterMeta {
 
 const REGISTER_META_KEYS = new Set(['name', 'unit', 'range', 'default', 'description']);
 
-const formatExtraLines = (meta: RegisterMeta): string[] => {
+const formatExtraLines = <M extends RegisterMeta>(meta: M): string[] => {
   const lines: string[] = [];
   for (const key of Object.keys(meta)) {
     if (!REGISTER_META_KEYS.has(key)) {
-      const value = (meta as unknown as Record<string, unknown>)[key];
+      // SAFETY: the key comes from this object's own properties; the value is only stringified.
+      const value = meta[key as keyof M];
       const label = key.charAt(0).toUpperCase() + key.slice(1);
       lines.push(`${label}: ${value}`);
     }
@@ -157,9 +158,11 @@ const formatLookupMeta = (register: number, meta: RegisterMeta): string =>
  */
 export type ParamEntry<S extends Schema.Codec<any, any>> = {
   readonly schema: S;
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decoder is the validation boundary for untrusted input.
   readonly decode: (raw: unknown) => Effect.Effect<S['Type'], Schema.SchemaError>;
   readonly encode: (value: S['Type']) => Effect.Effect<S['Encoded'], Schema.SchemaError>;
   readonly formatted: (value: S['Type']) => string;
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decoder is the validation boundary for untrusted input.
   readonly decodeSync: (raw: unknown) => S['Type'];
   readonly encodeSync: (value: S['Type']) => S['Encoded'];
 };
@@ -239,7 +242,11 @@ export function makeScaledParam(
           decode: (raw) => Effect.succeed(raw * factor),
           encode: readOnly
             ? (value) => readOnlyEncodeFailure(meta.name, value)
-            : (value) => Effect.succeed(Math.round(value / factor) as UInt16),
+            : // SAFETY: the brand is applied inside the transform, but the enclosing
+              // UInt16 schema runs its integer and 0..0xffff checks on this value
+              // immediately after, so an out-of-range word fails encoding rather
+              // than reaching the wire.
+              (value) => Effect.succeed(Math.round(value / factor) as UInt16),
         }),
       ),
     ).annotate({ description: formatScaledMeta(register, meta, factor) }),
@@ -285,6 +292,9 @@ export function makeSignedScaledParam(
             : (value) => {
                 const raw = Math.round(value / factor);
                 const unsigned = raw < 0 ? raw + 0x10000 : raw;
+                // SAFETY: the brand is applied inside the transform, but the enclosing
+                // UInt16 schema checks 0..0xffff immediately after, so a value too
+                // large for two's complement fails encoding rather than wrapping.
                 return Effect.succeed(unsigned as UInt16);
               },
         }),
@@ -303,15 +313,22 @@ export const makeEnumParam = <Domain extends string>(
   meta: RegisterMeta,
   opts?: { readonly readOnly?: boolean },
 ): ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>> => {
-  const values = [...new Set(Object.values(labels))] as [Domain, ...Domain[]];
+  const values = [...new Set(Object.values(labels))];
+  if (values.length === 0) {
+    throw new Error(`${meta.name}: an enum parameter needs at least one label.`);
+  }
   const readOnly = opts?.readOnly ?? false;
+  // SAFETY: two assertions here, both resting on the same fact. The length check
+  // above rules out the empty case, which is the only way `values` fails to be
+  // the non-empty tuple `Literals` wants; the trailing assertion then names the
+  // literal union that `Literals` built from it.
   return makeEntry(
     UInt16.pipe(
       Schema.decodeTo(
-        Schema.Literals(values),
+        Schema.Literals(values as [Domain, ...Domain[]]),
         SchemaTransformation.transformOrFail<Domain, UInt16>({
           decode: (raw) => {
-            const label = labels[raw as number];
+            const label = labels[raw];
             return label !== undefined
               ? Effect.succeed(label)
               : Effect.fail(
@@ -326,7 +343,10 @@ export const makeEnumParam = <Domain extends string>(
             : (value) => {
                 const entry = Object.entries(labels).find(([, v]) => v === value);
                 return entry
-                  ? Effect.succeed(Number(entry[0]) as UInt16)
+                  ? // SAFETY: the key came from `labels`, and the enclosing UInt16
+                    // schema checks the parsed number immediately after, so a label
+                    // map keyed outside 0..0xffff fails encoding.
+                    Effect.succeed(Number(entry[0]) as UInt16)
                   : Effect.fail(
                       new SchemaIssue.InvalidValue(
                         { message: `Invalid value "${value}" for ${meta.name}` },
@@ -337,7 +357,7 @@ export const makeEnumParam = <Domain extends string>(
         }),
       ),
     ).annotate({
-      description: formatEnumMeta(register, meta, labels as Record<number, string>),
+      description: formatEnumMeta(register, meta, labels),
     }),
   ) as ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>>;
 };
@@ -347,9 +367,13 @@ export const makeEnumParam = <Domain extends string>(
 /**
  * Minimal structural shape the bitfield factory needs from a
  * {@link Schema.Class}-derived class: it is both a schema (so it can serve as
- * the target of a `decodeTo`) and an instantiable class.
+ * the target of a `decodeTo`) and an instantiable class. Both roles are stated
+ * here, because a constraint that named only the constructor would leave the
+ * factory asserting the schema role back in at the `decodeTo` call.
  */
-export type AnyBitfieldClass = new (fields: any) => any;
+export interface AnyBitfieldClass extends Schema.Codec<any, any> {
+  new (fields: any): any;
+}
 
 /**
  * Constructor shape produced for the generated patch class. Allows `new`
@@ -393,34 +417,43 @@ export type BitfieldParamEntry<F extends AnyBitfieldClass> = ParamEntry<Bitfield
 export const makeBitfieldParam = <F extends AnyBitfieldClass>(
   register: number,
   flagsClass: F,
-  bitLayout: Record<keyof InstanceType<F>, number>,
+  bitLayout: Record<string & keyof InstanceType<F>, number>,
   meta: RegisterMeta,
   opts?: { readonly readOnly?: boolean },
 ): BitfieldParamEntry<F> => {
   const readOnly = opts?.readOnly ?? false;
-  const keys = Object.keys(bitLayout) as Array<keyof InstanceType<F>>;
-  const layout = bitLayout as unknown as Record<string, number>;
+  // SAFETY: `Object.keys` types its result `string[]` because it cannot know the
+  // key set. Every key here comes from `bitLayout`, whose keys are exactly the
+  // string-named fields of the flag class.
+  const keys = Object.keys(bitLayout) as Array<string & keyof InstanceType<F>>;
   type Flags = InstanceType<F>;
 
   const schema = UInt16.pipe(
     Schema.decodeTo(
-      flagsClass as unknown as Schema.Codec<Flags, Flags>,
+      flagsClass,
       SchemaTransformation.transformOrFail<Flags, UInt16>({
         decode: (word) =>
           Effect.succeed(
-            new (flagsClass as unknown as new (f: Record<string, boolean>) => Flags)(
-              Object.fromEntries(keys.map((k) => [k, (word & bit(layout[k as string]!)) !== 0])),
+            // SAFETY: a Schema.Class constructor takes its own field record, which
+            // is what `keys` spells out, but the generic `F` cannot express that.
+            new (flagsClass as new (f: Record<string, boolean>) => Flags)(
+              Object.fromEntries(keys.map((k) => [k, (word & bit(bitLayout[k])) !== 0])),
             ),
           ),
         encode: readOnly
           ? (value) => readOnlyEncodeFailure(meta.name, value)
           : (value) => {
               let word = 0;
+              // SAFETY: `keys` are this flag class's own boolean fields, named by
+              // `bitLayout`, so every lookup hits a boolean.
+              const flags = value as Record<string, boolean>;
               for (const k of keys) {
-                if ((value as any)[k]) word |= bit(layout[k as string]!);
+                if (flags[k]) word |= bit(bitLayout[k]);
               }
               return Number.isInteger(word) && word >= 0 && word <= 0xffff
-                ? Effect.succeed(word as UInt16)
+                ? // SAFETY: the branches above check integer and 0..0xffff, which is
+                  // exactly what the UInt16 brand claims.
+                  Effect.succeed(word as UInt16)
                 : Effect.fail(
                     new SchemaIssue.InvalidValue(
                       { message: `${meta.name} is out of UInt16 range` },
@@ -430,24 +463,33 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
             },
       }),
     ),
-  ).annotate({ description: formatBitfieldMeta(register, meta) }) as BitfieldSchema<F>;
+  ).annotate({ description: formatBitfieldMeta(register, meta) });
 
   const patchFields: Record<string, Schema.Struct.Fields[string]> = {};
-  for (const k of keys) patchFields[k as string] = Schema.optional(Schema.Boolean);
-  const patchIdentifier = `${(flagsClass as { name?: string }).name ?? 'Bitfield'}Patch`;
+  for (const k of keys) patchFields[k] = Schema.optional(Schema.Boolean);
+  const patchIdentifier = `${flagsClass.name ?? 'Bitfield'}Patch`;
+  // SAFETY: `Struct.Fields` is an exact field record, which the loop above built
+  // one optional boolean at a time. The result is a class over those fields, and
+  // `AnyPatchClass` is that shape with the field names erased.
   const patchSchema = Schema.Class<any>(patchIdentifier)(
-    patchFields as unknown as Schema.Struct.Fields,
-  ) as unknown as AnyPatchClass;
+    patchFields as Schema.Struct.Fields,
+  ) as AnyPatchClass;
 
   const merge = (base: Flags, patchObj: Readonly<Record<string, boolean | undefined>>): Flags => {
     const fields: Record<string, boolean> = {};
+    // SAFETY: as above, `keys` are the flag class's own boolean fields.
+    const baseFlags = base as Record<string, boolean>;
     for (const k of keys) {
-      const p = patchObj[k as string];
-      fields[k as string] = p === undefined ? (base as any)[k] : p;
+      const p = patchObj[k];
+      fields[k] = p === undefined ? baseFlags[k]! : p;
     }
-    return new (flagsClass as unknown as new (f: Record<string, boolean>) => Flags)(fields);
+    // SAFETY: as above, the class constructor takes its own field record.
+    return new (flagsClass as new (f: Record<string, boolean>) => Flags)(fields);
   };
 
+  // SAFETY: `makeEntry` is generic over the schema, so it returns the entry for
+  // `BitfieldSchema<F>`; this names that same shape plus the two bitfield-only
+  // members spread in beside it.
   return {
     ...makeEntry(schema),
     patch: patchSchema,
@@ -485,6 +527,9 @@ export const makeLookupParam = <Domain extends string>(
   opts?: { readonly domain?: Schema.Codec<Domain, any, any, any> },
 ): ParamEntry<LookupSchema<Domain>> => {
   const domain = opts?.domain ?? Schema.String;
+  // SAFETY: `transformOrFail<any, UInt16>` erases the domain side, because the
+  // optional `domain` schema is only known as a codec here. The trailing
+  // assertion names the domain the caller passed back onto the result.
   return makeEntry(
     UInt16.pipe(
       Schema.decodeTo(
@@ -597,7 +642,14 @@ export type ParamEntryOfConfig<C extends ParamConfig<any>> = C extends {
 // ── fromConfig dispatch ──────────────────────────────────────
 
 export function fromConfig<C extends ParamConfig<any>>(config: C): ParamEntryOfConfig<C>;
-export function fromConfig(config: ParamConfig<any>): unknown {
+/**
+ * The implementation signature is wider than the overload above: an unrecognized
+ * `kind` yields `undefined`, which no `ParamEntryOfConfig<C>` includes. Only a
+ * config that bypassed the type system can reach that branch.
+ */
+export function fromConfig(
+  config: ParamConfig<any>,
+): ParamEntry<any> | BitfieldParamEntry<any> | undefined {
   switch (config.kind) {
     case ParamKind.UInt16:
       return makeParam(config.register, config.meta);
