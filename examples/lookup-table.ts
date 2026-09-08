@@ -18,18 +18,18 @@ const FaultCode = Schema.String.pipe(Schema.brand('FaultCode'));
 
 // ── Fault code lookup table ────────────────────────────────────
 
-const faultLabels: Record<number, FaultCode> = {
-  0: 'No fault' as FaultCode,
-  1: 'Over-current' as FaultCode,
-  2: 'Over-voltage' as FaultCode,
-  3: 'Under-voltage' as FaultCode,
-  4: 'Over-temperature' as FaultCode,
-};
+const faultLabels = {
+  0: FaultCode.make('No fault'),
+  1: FaultCode.make('Over-current'),
+  2: FaultCode.make('Over-voltage'),
+  3: FaultCode.make('Under-voltage'),
+  4: FaultCode.make('Over-temperature'),
+} satisfies Record<number, FaultCode>;
 
 const faults = makeLookupParam(
   0x2521,
   faultLabels,
-  (raw) => `Unknown fault code ${raw}` as FaultCode,
+  (raw) => FaultCode.make(`Unknown fault code ${raw}`),
   {
     name: 'Fault Code Register',
     unit: '-',
@@ -53,7 +53,8 @@ for (const wire of [0, 2, 4, 99]) {
 // ── Encode intentionally fails (lookup is decode-only) ───────────
 
 try {
-  faults.encodeSync('No fault' as FaultCode);
+  faults.encodeSync(FaultCode.make('No fault'));
 } catch (err) {
-  console.log('Encode failed as expected:', (err as Error).message.includes('read only'));
+  const message = err instanceof Error ? err.message : String(err);
+  console.log('Encode failed as expected:', message.includes('read only'));
 }

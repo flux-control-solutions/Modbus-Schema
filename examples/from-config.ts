@@ -80,23 +80,32 @@ const entries = {
 
 // ── Decode a snapshot of raw register values ───────────────────
 
-const snapshot: Record<number, number> = {
+const snapshot = {
   [controlMode.register]: 2,
   [analogOutputScale.register]: 750,
   [pulseInputBias.register]: 65036, // 0xFE0C = -50.0
 };
 
-console.log('Control mode:', entries.controlMode.decodeSync(snapshot[controlMode.register]));
+// A snapshot is keyed by register, so a lookup can miss. `decodeSync` takes a
+// wire word, not a maybe-word, so the miss is resolved here rather than handed
+// to the decoder as an out-of-domain value.
+const wordAt = (register: number): number => {
+  const word = snapshot[register];
+  if (word === undefined) throw new Error(`register ${register} missing from snapshot`);
+  return word;
+};
+
+console.log('Control mode:', entries.controlMode.decodeSync(wordAt(controlMode.register)));
 console.log(
   'Analog output scale:',
-  entries.analogOutputScale.decodeSync(snapshot[analogOutputScale.register]),
+  entries.analogOutputScale.decodeSync(wordAt(analogOutputScale.register)),
 );
 console.log(
   'Pulse input bias:',
-  entries.pulseInputBias.decodeSync(snapshot[pulseInputBias.register]),
+  entries.pulseInputBias.decodeSync(wordAt(pulseInputBias.register)),
 );
 
 // ── Encode a domain value back to wire ─────────────────────────
 
-const wire = entries.analogOutputScale.encodeSync(10 as Voltage);
+const wire = entries.analogOutputScale.encodeSync(Voltage.make(10));
 console.log('Analog output scale wire:', wire); // 1000

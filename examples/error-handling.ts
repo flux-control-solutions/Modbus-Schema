@@ -43,6 +43,8 @@ const handleWithEffect = Effect.gen(function* () {
     }),
   );
 
+  // SAFETY: 15 V is deliberately outside the brand's 0–10 range, so the encoder
+  // is the one that reports the failure this example is demonstrating.
   yield* voltage.encode(15 as Voltage).pipe(
     Effect.matchEffect({
       onFailure: (error) => Effect.sync(() => console.log('Effect encode failed:', error.message)),
@@ -64,6 +66,7 @@ try {
 }
 
 try {
+  // SAFETY: as above, deliberately outside the brand's 0–10 range.
   voltage.encodeSync(15 as Voltage);
 } catch (error) {
   if (Schema.isSchemaError(error)) {
@@ -74,7 +77,7 @@ try {
 // ── Round-trip guarantee ───────────────────────────────────────
 
 const roundTrip = Effect.gen(function* () {
-  const wire = yield* voltage.encode(7.5 as Voltage);
+  const wire = yield* voltage.encode(Voltage.make(7.5));
   const decoded = yield* voltage.decode(wire);
   console.log('Round-trip:', decoded, 'V (wire:', wire, ')');
 });

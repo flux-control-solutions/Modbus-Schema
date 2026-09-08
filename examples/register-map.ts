@@ -74,20 +74,20 @@ const torque = makeSignedScaledParam(REG_TORQUE, 0.1, {
   default: '0.0',
 });
 
-const faults = makeLookupParam(
+const faults = makeLookupParam<string>(
   REG_FAULT,
   {
     0: 'No fault',
     1: 'Over-current',
     2: 'Over-voltage',
-  } as Record<number, string>,
+  },
   (raw) => `Unknown (${raw})`,
   { name: 'Fault Code', unit: '-', range: '0-2', default: '0' },
 );
 
 // ── Decode a full register snapshot ────────────────────────────
 
-const snapshot: Record<number, number> = {
+const snapshot = {
   [REG_STATUS]: 0b0000_0000_0000_0101, // run=true, fault=true
   [REG_FREQUENCY]: 5000, // 50.00 Hz
   [REG_CURRENT]: 123, // 12.3 A
