@@ -6,9 +6,8 @@
  * @example bun run examples/basic.ts
  */
 
+import { makeScaledParam } from '@flux-control/modbus-schema';
 import { Effect } from 'effect';
-
-import { makeScaledParam } from '../index';
 
 const frequency = makeScaledParam(0x0102, 0.1, {
   name: 'Maximum Output Frequency',

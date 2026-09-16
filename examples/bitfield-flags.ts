@@ -8,9 +8,8 @@
  * @example bun run examples/bitfield-flags.ts
  */
 
+import { makeBitfieldParam } from '@flux-control/modbus-schema';
 import { Schema } from 'effect';
-
-import { makeBitfieldParam } from '../index';
 
 // ── Flag class ─────────────────────────────────────────────────
 

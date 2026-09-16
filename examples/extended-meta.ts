@@ -8,15 +8,14 @@
  * @example bun run examples/extended-meta.ts
  */
 
-import { Schema } from 'effect';
-
 import {
   ParamKind,
   type RegisterMeta,
   makeScaledParam,
   fromConfig,
   type ParamConfig,
-} from '../index';
+} from '@flux-control/modbus-schema';
+import { Schema } from 'effect';
 
 // ── Extended metadata ─────────────────────────────────────────
 
@@ -65,5 +64,5 @@ const entry = fromConfig({
 });
 
 if (entry) {
-  console.log('\nfromConfig decode:', (entry as typeof pidGain).decodeSync(3000));
+  console.log('\nfromConfig decode:', entry.decodeSync(3000));
 }

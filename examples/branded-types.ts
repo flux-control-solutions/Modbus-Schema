@@ -60,7 +60,7 @@ const program = Effect.gen(function* () {
   const pct = yield* torque.decode(61440); // 0xF000 = -4096 as two's complement
   yield* Effect.sync(() => console.log(`Torque: ${pct.toFixed(1)}%`)); // -50.0%
 
-  const wire = yield* torque.encode(75 as TorquePercent);
+  const wire = yield* torque.encode(TorquePercent.make(75));
   yield* Effect.sync(() => console.log(`Torque wire: ${wire}`)); // 6144
 });
 
@@ -73,7 +73,13 @@ console.log('Sync torque decode:', torque.decodeSync(57344)); // 0xE000 = -8192 
 
 // Out-of-range values are rejected by the branded domain schema.
 try {
+  // SAFETY: 600 Hz is deliberately outside the brand's 0–599 range. Asserting
+  // rather than constructing is what lets the encoder be the one to reject it,
+  // which is the point of this example.
   frequency.encodeSync(600 as FrequencyHz); // exceeds 599 Hz
 } catch (err) {
-  console.log('Encode rejected out-of-range frequency:', (err as Error).message);
+  console.log(
+    'Encode rejected out-of-range frequency:',
+    err instanceof Error ? err.message : String(err),
+  );
 }
