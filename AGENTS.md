@@ -1,78 +1,91 @@
-# modbus-schema
+# @flux-control/modbus-schema
 
-Device-agnostic Effect Schema generators for Modbus register values, with both Effect-native and synchronous APIs.
+Device-independent Effect 4 schemas for Modbus register values, with Effect-native and synchronous APIs.
 
-## Stack
+## Development
 
-- **Runtime**: Bun only — never use Node, npm, pnpm, yarn, or vite.
-- **Language**: TypeScript 6 (ESNext, `verbatimModuleSyntax`, bundler resolution, `module: "Preserve"`).
-- **Core lib**: `effect` (^4.0.0-rc.109). Effect v4 is still a release candidate.
-- **LSP**: `@effect/language-service` plugin in `tsconfig.json` `compilerOptions.plugins`.
-- **License**: GPL-3.0.
+Use Bun for package development.
+Run commands from this repository's root. If a parent workspace manages dependencies, install from that workspace's root.
 
-## Commands
-
-| Action      | Command                      |
-| ----------- | ---------------------------- |
-| Install     | `bun install`                |
-| Type-check  | `bun run typecheck`          |
-| Test        | `bun test`                   |
-| Run example | `bun run examples/<name>.ts` |
-| Build       | `bun run build`              |
-
-No build step required for development — `noEmit` is on; Bun runs `.ts` directly.
-
-## Source layout
-
-```
-index.ts                     — Re-exports all public API from src/
-src/
-  index.ts                   — Schema engine: factories, config types, fromConfig, wire primitives
-  engine.test.ts             — Unit tests for all factories and sync APIs
-examples/
-  basic.ts                   — Effect + synchronous API usage
-  branded-types.ts           — Domain brands with scaled/signed parameters
-  from-config.ts             — Declarative ParamConfig dispatch via fromConfig
-  bitfield-flags.ts          — Read-modify-write flag registers
-  lookup-table.ts            — Decode-only fault/alarm code lookups
-  register-map.ts            — Compose multiple entries into a typed snapshot
-  error-handling.ts          — Parse error handling in Effect and sync APIs
+```bash
+bun install
+bun run format
+bun run lint
+bun run typecheck
+bun run test
+bun run build
 ```
 
-## Architecture
+`bun run format` checks formatting. Use `bun run format:fix` to write formatting changes.
+Use `bun run lint:fix` to apply lint fixes.
+After dependency changes, run `bun run lock` to regenerate and validate the lockfile.
 
-- **Wire primitives** — `UInt16` and `Int16` branded schemas enforce Modbus word ranges.
-- **Schema factories** — `makeParam`, `makeScaledParam`, `makeSignedScaledParam`, `makeEnumParam`, `makeBitfieldParam`, `makeLookupParam` produce `ParamEntry` bundles.
-- **`ParamEntry`** — Contains:
-  - `schema` — the Effect `Schema`
-  - `decode` / `encode` — Effect-native operations
-  - `decodeSync` / `encodeSync` — synchronous operations that throw `Schema.SchemaError` on failure
-  - `formatted` — pretty-print helper
-- **`BitfieldParamEntry`** — Extends `ParamEntry` with a generated `Patch` class and `merge` function for read-modify-write semantics.
-- **`ParamConfig` / `ParamKind`** — Discriminated config objects consumed by `fromConfig`.
-- **`RegisterMeta`** — Metadata used for description annotations. Extensible: any extra keys beyond `RegisterMeta`'s fields are rendered automatically in the schema description (see `formatExtraLines`).
+Tests import source files directly. Package exports use `dist/`, so build before testing package imports or preparing a release.
+Run checks relevant to the change. For documentation-only changes, check formatting, paths, commands, and technical accuracy.
 
-The engine is intentionally device-agnostic: it never imports domain brands, register enums, or device error types.
+## Architecture and conventions
 
-## Conventions
+- Keep the schema engine independent of devices. Do not import device brands, register enums, or device error types.
+- Preserve `UInt16` and `Int16` range validation at the register boundary.
+- Keep Effect-native and synchronous encode/decode operations consistent.
+- Use Effect Schema's synchronous operations for synchronous APIs. Preserve `Schema.SchemaError` failures.
+- Return concrete inferred schema types from factories. Do not widen factory returns to `Schema.Codec`.
+- Preserve generated patch schemas and merge behavior for bitfields.
+- Keep `ParamConfig` and `ParamKind` aligned with `fromConfig` dispatch.
+- Preserve description annotations, including additional register metadata.
+- Read descriptions with `Schema.resolveAnnotations(entry.schema)?.description`.
+- Follow the installed Effect 4 APIs. Use `SchemaIssue`, `SchemaTransformation`, and `Schema.toFormatter` where appropriate.
+- Use `import type` for type-only imports.
+- Import test helpers from `bun:test`.
+- Test changed range checks, transformations, synchronous behavior, and inferred public types.
+- Let oxfmt control formatting and import order.
 
-- Follow `effect` v4 idioms: `Schema`, `Brand`, `SchemaIssue`, `SchemaTransformation`.
-- `ParseResult` and `Pretty` do not exist in v4 — use `Schema.SchemaError` / `SchemaIssue` and `Schema.toFormatter`.
-- Use `Bun.test` / `import { test, expect } from "bun:test"` for tests.
-- Always `import type` for type-only imports (`verbatimModuleSyntax`).
-- Sync APIs use Effect Schema's built-in `Schema.decodeUnknownSync` / `Schema.encodeSync` and throw on parse errors.
-- Factories return their concrete inferred schema type; never widen a return to `Schema.Codec<…>`.
-- Read register descriptions with `Schema.resolveAnnotations(entry.schema)?.description`.
+See `README.md` and `examples/` for factory usage.
+If an Effect reference clone exists under `references/effect/`, check its revision against the installed dependency before use.
+The upstream `packages/effect/src/` and `packages/effect/SCHEMA.md` contain implementation and schema guidance.
 
 ## Tooling
 
-- **Fallow MCP** is configured via `opencode.json` (`bunx fallow-mcp`). Run `fallow audit` for pre-commit quality checks on changed code.
+- Use the configured Fallow tools to review changed code when available.
+- Keep dependency versions and compiler settings in `package.json` and the TypeScript configuration.
 
-## Referencing upstream libraries
+## Written communication
 
-Shallow clones of key dependencies can live in `references/` for offline browsing (gitignored; re-clone if stale):
+Use Simplified Technical English principles for all text you create or revise.
+This includes documentation, code comments, JSDoc, TODOs, test descriptions, error messages, and agent instructions.
+It also includes commit messages, pull requests, review comments, release notes, and Linear titles, descriptions, comments, and updates.
+Apply the same rules to prose inside examples, code blocks, and Markdown or HTML comments.
 
-| Reference | Local path          | Useful subdirectory                              |
-| --------- | ------------------- | ------------------------------------------------ |
-| effect    | `references/effect` | `packages/effect/src/` for core types            |
-| effect    | `references/effect` | `packages/effect/SCHEMA.md` for the Schema guide |
+- Use short sentences, active voice, and concrete words.
+- Give one instruction per sentence. Put each condition before the action that depends on it.
+- Use the same term for the same concept.
+- Aim for 20 words per instruction sentence and 25 words per descriptive sentence.
+- Avoid idioms, metaphors, contractions, and unnecessary background.
+- Explain the reason or constraint in code comments. Do not repeat the code.
+- Preserve technical meaning, identifiers, commands, units, and required legal wording.
+- Keep necessary quotations exact and identify them as quotations. Apply the public-repository rules to quotations too.
+- Do not claim formal ASD-STE100 compliance without a complete review.
+
+## Public repository
+
+Treat this repository and its associated development records as public, regardless of its current visibility.
+
+- Keep private information from consumers, customers, deployments, and other repositories out of public work.
+- Apply this rule to every repository file, including agent instructions, code, comments, tests, fixtures, and examples.
+- Apply it to documentation, commit messages, branch names, pull requests, review comments, issues, changesets, and release notes.
+- Apply it to logs, screenshots, and other attachments intended for publication.
+- Do not include private issue identifiers, URLs, customer names, deployment details, internal paths, or consumer-specific configuration.
+- Use public dependency names and public repository references when needed.
+- Use synthetic examples. Describe library requirements without naming private consumers.
+- Accept consumer-specific context through parameters instead of embedding private values.
+- Keep private tracking references in private records. Public records must remain understandable without private context.
+- Check the destination repository and all proposed public text before committing, pushing, or opening a pull request.
+
+## Commits and pull requests
+
+- Commit, push, or open pull requests only when requested.
+- Follow the repository's commit conventions. Use an imperative summary and explain important reasons in the body.
+- Describe the change, verification results, and remaining limitations in pull requests.
+- Report failed checks and checks that you could not run.
+- Do not rewrite published history unless explicitly requested.
+- Keep `CLAUDE.md` as an `@AGENTS.md` import. Keep these instructions complete for a standalone clone.
