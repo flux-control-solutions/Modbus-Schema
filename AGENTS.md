@@ -41,8 +41,6 @@ Run checks relevant to the change. For documentation-only changes, check formatt
 - Let oxfmt control formatting and import order.
 
 See `README.md` and `examples/` for factory usage.
-If an Effect reference clone exists under `references/effect/`, check its revision against the installed dependency before use.
-The upstream `packages/effect/src/` and `packages/effect/SCHEMA.md` contain implementation and schema guidance.
 
 ## Tooling
 
