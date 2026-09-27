@@ -55,6 +55,8 @@ export const Int16 = Schema.Number.check(
   Schema.isLessThanOrEqualTo(0x7fff),
 ).pipe(Schema.brand('Int16'));
 
+const isInt16 = Schema.is(Int16);
+
 // ── Read-only encoder ──────────────────────────────────────
 
 /**
@@ -256,7 +258,8 @@ export function makeScaledParam(
 /**
  * Signed scaled parameter where wire = domain / factor, using UInt16 as the
  * wire-side schema with two's-complement conversion (Modbus delivers unsigned
- * 16-bit values). Decode validates through the optional `domain`.
+ * 16-bit values). Decode validates through the optional `domain`. Encode fails
+ * when `value / factor` rounds to a word outside -32768..32767.
  */
 export function makeSignedScaledParam(
   register: number,
@@ -291,11 +294,22 @@ export function makeSignedScaledParam(
             ? (value) => readOnlyEncodeFailure(meta.name, value)
             : (value) => {
                 const raw = Math.round(value / factor);
-                const unsigned = raw < 0 ? raw + 0x10000 : raw;
-                // SAFETY: the brand is applied inside the transform, but the enclosing
-                // UInt16 schema checks 0..0xffff immediately after, so a value too
-                // large for two's complement fails encoding rather than wrapping.
-                return Effect.succeed(unsigned as UInt16);
+                // The UInt16 check after this transform cannot find a signed overflow.
+                // Two's complement maps -65535..-32769 into 0..0xffff, and 32768..65535
+                // is already in that range. Both would reach the wire with a wrong value.
+                if (!isInt16(raw)) {
+                  return Effect.fail(
+                    new SchemaIssue.InvalidValue(
+                      {
+                        message: `${meta.name}: ${value} encodes to ${raw}, which is outside -32768..32767`,
+                      },
+                      value,
+                    ),
+                  );
+                }
+                // SAFETY: `raw` is an integer in -32768..32767, so the conversion
+                // gives an integer in 0..0xffff.
+                return Effect.succeed((raw < 0 ? raw + 0x10000 : raw) as UInt16);
               },
         }),
       ),

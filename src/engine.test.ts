@@ -230,6 +230,53 @@ describe('SignedScaledParam', () => {
     expect(entry.decodeSync(65036)).toBe(-50.0); // 0xFE0C
     expect(entry.encodeSync(-50.0)).toBe(65036); // 0xFE0C
   });
+
+  describe('Int16 range on encode', () => {
+    const unit = P.makeSignedScaledParam(0, 1, { name: 'Unit', unit: '' });
+    const inverted = P.makeSignedScaledParam(0, -1, { name: 'Inverted', unit: '' });
+    const half = P.makeSignedScaledParam(0, -0.5, { name: 'Half', unit: '' });
+
+    it('encodes the Int16 limits with factor 1', () => {
+      expect(encodeOk(unit.encode, -32768)).toBe(0x8000);
+      expect(encodeOk(unit.encode, 32767)).toBe(0x7fff);
+    });
+
+    it('fails when the word is outside Int16 with factor 1', () => {
+      for (const value of [-32769, -40000, -65535, 32768, 40000, 65535]) {
+        encodeFail(unit.encode, value);
+      }
+    });
+
+    it('checks the range after rounding', () => {
+      expect(encodeOk(unit.encode, 32767.4)).toBe(0x7fff);
+      expect(encodeOk(unit.encode, -32768.5)).toBe(0x8000);
+      encodeFail(unit.encode, 32767.5);
+      encodeFail(unit.encode, -32768.6);
+    });
+
+    it('checks the range with a fractional factor', () => {
+      expect(encodeOk(entry.encode, 3276.7)).toBe(0x7fff);
+      expect(encodeOk(entry.encode, -3276.8)).toBe(0x8000);
+      encodeFail(entry.encode, 3276.8);
+      encodeFail(entry.encode, -3276.9);
+    });
+
+    it('checks the range with a negative factor', () => {
+      expect(encodeOk(inverted.encode, 32768)).toBe(0x8000);
+      expect(encodeOk(inverted.encode, -32767)).toBe(0x7fff);
+      encodeFail(inverted.encode, -32768);
+      encodeFail(inverted.encode, 32769);
+      expect(encodeOk(half.encode, 16384)).toBe(0x8000);
+      expect(encodeOk(half.encode, -16383.5)).toBe(0x7fff);
+      encodeFail(half.encode, -16384);
+      encodeFail(half.encode, 16384.5);
+    });
+
+    it('fails the sync encoder with a SchemaError', () => {
+      expect(() => unit.encodeSync(32768)).toThrow(Schema.SchemaError);
+      expect(() => unit.encodeSync(-32769)).toThrow(Schema.SchemaError);
+    });
+  });
 });
 
 // ── Enum param ─────────────────────────────────────────────────
