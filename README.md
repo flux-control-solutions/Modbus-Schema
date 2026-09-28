@@ -92,7 +92,7 @@ Set `opts.readOnly: true` on scaled, signed scaled, enum, or bitfield factories 
 
 Use `ParamKind` with `fromConfig` to select a factory from a `ParamConfig`. A typed config returns the corresponding entry type. If an untyped runtime config has an unknown `kind`, `fromConfig` returns `undefined`.
 
-`RegisterMeta` requires `name` and `unit`. Optional `range` and `default` fields appear in the schema description; if omitted, their displayed value is `undefined`. Extra metadata keys also appear as text. Read the description with `Schema.resolveAnnotations(entry.schema)?.description`.
+`RegisterMeta` requires `name` and `unit`. Optional `default` appears in the schema description and displays `undefined` when omitted. Optional `range` appears for non-enum entries and displays `undefined` when omitted; enum descriptions do not include it. Extra metadata keys also appear as text. Read the description with `Schema.resolveAnnotations(entry.schema)?.description`.
 
 See [examples](examples/) for complete programs:
 
