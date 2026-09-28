@@ -1,9 +1,8 @@
 /**
  * Demonstrates extending {@link RegisterMeta} with device-specific fields.
  *
- * Extra keys beyond RegisterMeta's fields are rendered automatically in the
- * schema description (see `formatExtraLines`). Works with both direct factory
- * calls and the declarative {@link fromConfig} dispatch.
+ * Extra keys appear in the schema description. Both direct factory calls
+ * and {@link fromConfig} preserve these keys.
  *
  * @example bun run examples/extended-meta.ts
  */
