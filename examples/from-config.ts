@@ -2,8 +2,8 @@
  * Demonstrates declarative register configuration with {@link fromConfig}.
  *
  * Instead of calling factories directly, define a record of {@link ParamConfig}
- * objects and let `fromConfig` dispatch to the correct factory. This pattern
- * mirrors how device parameter groups are defined in the inverter package.
+ * objects and let `fromConfig` select the matching factory. The resulting
+ * entries retain their domain types.
  *
  * @example bun run examples/from-config.ts
  */

@@ -1,9 +1,8 @@
 /**
  * Demonstrates bitfield parameters with read-modify-write semantics.
  *
- * `makeBitfieldParam` packs boolean flags into a 16-bit word and generates a
- * `Patch` class plus `merge` function so consumers can update only the bits
- * they care about.
+ * `makeBitfieldParam` packs boolean flags into a 16-bit word. Its `patch`
+ * class and `merge` function keep flags that a patch does not specify.
  *
  * @example bun run examples/bitfield-flags.ts
  */
@@ -45,7 +44,7 @@ console.log('Decoded status:', {
   fault: decoded.fault,
   warning: decoded.warning,
 });
-// { run: false, reverse: true, fault: true, warning: false }
+// { run: false, reverse: true, fault: false, warning: true }
 
 // ── Read-modify-write: update only the run bit ─────────────────
 

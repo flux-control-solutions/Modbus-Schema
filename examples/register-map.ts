@@ -88,7 +88,7 @@ const faults = makeLookupParam<string>(
 // ── Decode a full register snapshot ────────────────────────────
 
 const snapshot = {
-  [REG_STATUS]: 0b0000_0000_0000_0101, // run=true, fault=true
+  [REG_STATUS]: 0b0000_0000_0000_0101, // run=true, warning=true
   [REG_FREQUENCY]: 5000, // 50.00 Hz
   [REG_CURRENT]: 123, // 12.3 A
   [REG_TORQUE]: 65036, // 0xFE0C = -500 as two's complement -> -50.0%

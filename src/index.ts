@@ -32,6 +32,7 @@ import { Brand, Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect
  */
 export type UInt16 = number & Brand.Brand<'UInt16'>;
 
+/** Validate unsigned register words from 0 through 65535. */
 export const UInt16 = Schema.Number.check(
   Schema.isInt(),
   Schema.isGreaterThanOrEqualTo(0),
@@ -49,6 +50,7 @@ export type UInt16Schema = typeof UInt16;
  */
 export type Int16 = number & Brand.Brand<'Int16'>;
 
+/** Validate signed integers from -32768 through 32767. Factory wire schemas use {@link UInt16}. */
 export const Int16 = Schema.Number.check(
   Schema.isInt(),
   Schema.isGreaterThanOrEqualTo(-0x8000),
@@ -68,6 +70,7 @@ const isInt16 = Schema.is(Int16);
  *
  * @param registerName - Human-readable name of the register.
  * @param actual - The value that was passed during encode.
+ * @returns A failed Effect with a read-only validation issue.
  */
 export const readOnlyEncodeFailure = <A>(registerName: string, actual: A) =>
   Effect.fail(new SchemaIssue.InvalidValue({ message: `${registerName} is read only` }, actual));
@@ -160,12 +163,17 @@ const formatLookupMeta = (register: number, meta: RegisterMeta): string =>
  */
 export type ParamEntry<S extends Schema.Codec<any, any>> = {
   readonly schema: S;
+  /** Decode untrusted input and validate it against the schema. */
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decoder is the validation boundary for untrusted input.
   readonly decode: (raw: unknown) => Effect.Effect<S['Type'], Schema.SchemaError>;
+  /** Encode a domain value; schema validation failures use the error channel. */
   readonly encode: (value: S['Type']) => Effect.Effect<S['Encoded'], Schema.SchemaError>;
+  /** Format a domain value as text. */
   readonly formatted: (value: S['Type']) => string;
+  /** Decode and validate untrusted input synchronously; throws on validation failure. */
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decoder is the validation boundary for untrusted input.
   readonly decodeSync: (raw: unknown) => S['Type'];
+  /** Encode a domain value synchronously; throws on schema validation failure. */
   readonly encodeSync: (value: S['Type']) => S['Encoded'];
 };
 
@@ -205,6 +213,10 @@ export enum ParamKind {
 /**
  * Simple UInt16 pass-through parameter.
  * The wire value IS the parameter value (no scaling).
+ *
+ * @param register - Register address recorded in the schema description.
+ * @param meta - Register description metadata.
+ * @returns An entry that validates and passes through unsigned 16-bit values.
  */
 export const makeParam = (register: number, meta: RegisterMeta): ParamEntry<UInt16Schema> =>
   makeEntry(UInt16.annotate({ description: formatMeta(register, meta) }));
@@ -215,6 +227,13 @@ export const makeParam = (register: number, meta: RegisterMeta): ParamEntry<UInt
  * Decode validates through the optional `domain` schema so out-of-range values
  * fail. Set `readOnly` to make encode fail with {@link readOnlyEncodeFailure}
  * (monitor registers).
+ * Encoding rounds `value / factor`. Supply a finite, non-zero factor.
+ *
+ * @param register - Register address recorded in the schema description.
+ * @param factor - Multiplier applied during decode and inverted during encode.
+ * @param meta - Register description metadata.
+ * @param opts - Optional domain schema and read-only setting.
+ * @returns An entry whose decoded values pass through the selected domain schema.
  */
 export function makeScaledParam(
   register: number,
@@ -260,6 +279,7 @@ export function makeScaledParam(
  * wire-side schema with two's-complement conversion (Modbus delivers unsigned
  * 16-bit values). Decode validates through the optional `domain`. Encode fails
  * when `value / factor` rounds to a word outside -32768..32767.
+ * Supply a finite, non-zero factor. The factory does not validate it.
  */
 export function makeSignedScaledParam(
   register: number,
@@ -320,6 +340,14 @@ export function makeSignedScaledParam(
 /**
  * Enum selection parameter.
  * Maps wire integers to human-readable labels and back.
+ * Unknown codes fail decoding. If labels repeat, encoding uses the first matching entry.
+ *
+ * @param register - Register address recorded in the schema description.
+ * @param labels - Map from wire integer codes to domain labels.
+ * @param meta - Register description metadata.
+ * @param opts - Optional read-only setting.
+ * @returns An entry that maps known codes and labels.
+ * @throws {Error} When `labels` has no values.
  */
 export const makeEnumParam = <Domain extends string>(
   register: number,
@@ -426,7 +454,8 @@ export type BitfieldParamEntry<F extends AnyBitfieldClass> = ParamEntry<Bitfield
  * so its intent constructors (`CommandWordFlags.runForward`, etc.) survive.
  *
  * Pass `readOnly: true` for monitor registers; the encode path then fails with
- * {@link readOnlyEncodeFailure} and patch/merge remain available but unused.
+ * {@link readOnlyEncodeFailure}. The entry still exposes `patch` and `merge`.
+ * Use bit positions 0 through 15. The factory does not validate positions.
  */
 export const makeBitfieldParam = <F extends AnyBitfieldClass>(
   register: number,
@@ -532,6 +561,7 @@ export type LookupSchema<Domain extends string> = Schema.decodeTo<
  * table, routing unknown codes through a `fallback`. Inherently decode-only
  * (encode always fails with {@link readOnlyEncodeFailure}); use for monitor
  * registers that report fault/alarm/model codes as human-readable text.
+ * The optional `domain` schema supplies a target for decoded strings.
  */
 export const makeLookupParam = <Domain extends string>(
   register: number,
@@ -568,11 +598,13 @@ export interface ConfigBase<R extends RegisterMeta = RegisterMeta> {
   readonly meta: R;
 }
 
+/** Configure an unsigned 16-bit pass-through register. `fromConfig` ignores `readOnly` here. */
 export interface UInt16ParamConfig<R extends RegisterMeta = RegisterMeta> extends ConfigBase<R> {
   readonly kind: ParamKind.UInt16;
   readonly readOnly?: boolean;
 }
 
+/** Configuration for an unsigned scaled register. */
 export interface ScaledParamConfig<
   R extends RegisterMeta = RegisterMeta,
   D extends Schema.Codec<any, any> = Schema.Number,
@@ -583,6 +615,7 @@ export interface ScaledParamConfig<
   readonly readOnly?: boolean;
 }
 
+/** Configuration for a signed two's-complement scaled register. */
 export interface SignedScaledParamConfig<
   R extends RegisterMeta = RegisterMeta,
   D extends Schema.Codec<any, any> = Schema.Number,
@@ -593,6 +626,7 @@ export interface SignedScaledParamConfig<
   readonly readOnly?: boolean;
 }
 
+/** Configuration for an enum register. */
 export interface EnumParamConfig<
   R extends RegisterMeta = RegisterMeta,
   Domain extends string = string,
@@ -602,6 +636,7 @@ export interface EnumParamConfig<
   readonly readOnly?: boolean;
 }
 
+/** Configuration for a bitfield register. */
 export interface BitfieldParamConfig<
   R extends RegisterMeta = RegisterMeta,
   F extends AnyBitfieldClass = AnyBitfieldClass,
@@ -612,6 +647,7 @@ export interface BitfieldParamConfig<
   readonly readOnly?: boolean;
 }
 
+/** Configuration for a read-only code lookup register. */
 export interface LookupParamConfig<
   R extends RegisterMeta = RegisterMeta,
   Domain extends string = string,
@@ -622,6 +658,7 @@ export interface LookupParamConfig<
   readonly domain?: Schema.Codec<Domain, any, any, any>;
 }
 
+/** Discriminated configuration union accepted by {@link fromConfig}. */
 export type ParamConfig<R extends RegisterMeta = RegisterMeta> =
   | UInt16ParamConfig<R>
   | ScaledParamConfig<R, any>
@@ -655,6 +692,7 @@ export type ParamEntryOfConfig<C extends ParamConfig<any>> = C extends {
 
 // ── fromConfig dispatch ──────────────────────────────────────
 
+/** Build the entry selected by the configuration's `kind` field. */
 export function fromConfig<C extends ParamConfig<any>>(config: C): ParamEntryOfConfig<C>;
 /**
  * The implementation signature is wider than the overload above: an unrecognized
