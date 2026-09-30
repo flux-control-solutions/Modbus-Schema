@@ -259,7 +259,7 @@ export function makeScaledParam(
     UInt16.pipe(
       Schema.decodeTo(
         domain,
-        SchemaTransformation.transformOrFail<any, UInt16>({
+        SchemaTransformation.transformEffect<any, UInt16>({
           decode: (raw) => Effect.succeed(raw * factor),
           encode: readOnly
             ? (value) => readOnlyEncodeFailure(meta.name, value)
@@ -305,7 +305,7 @@ export function makeSignedScaledParam(
     UInt16.pipe(
       Schema.decodeTo(
         domain,
-        SchemaTransformation.transformOrFail<any, UInt16>({
+        SchemaTransformation.transformEffect<any, UInt16>({
           decode: (raw) => {
             const signed = raw > 0x7fff ? raw - 0x10000 : raw;
             return Effect.succeed(signed * factor);
@@ -368,7 +368,7 @@ export const makeEnumParam = <Domain extends string>(
     UInt16.pipe(
       Schema.decodeTo(
         Schema.Literals(values as [Domain, ...Domain[]]),
-        SchemaTransformation.transformOrFail<Domain, UInt16>({
+        SchemaTransformation.transformEffect<Domain, UInt16>({
           decode: (raw) => {
             const label = labels[raw];
             return label !== undefined
@@ -474,7 +474,7 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
   const schema = UInt16.pipe(
     Schema.decodeTo(
       flagsClass,
-      SchemaTransformation.transformOrFail<Flags, UInt16>({
+      SchemaTransformation.transformEffect<Flags, UInt16>({
         decode: (word) =>
           Effect.succeed(
             // SAFETY: a Schema.Class constructor takes its own field record, which
@@ -571,14 +571,14 @@ export const makeLookupParam = <Domain extends string>(
   opts?: { readonly domain?: Schema.Codec<Domain, any, any, any> },
 ): ParamEntry<LookupSchema<Domain>> => {
   const domain = opts?.domain ?? Schema.String;
-  // SAFETY: `transformOrFail<any, UInt16>` erases the domain side, because the
+  // SAFETY: `transformEffect<any, UInt16>` erases the domain side, because the
   // optional `domain` schema is only known as a codec here. The trailing
   // assertion names the domain the caller passed back onto the result.
   return makeEntry(
     UInt16.pipe(
       Schema.decodeTo(
         domain,
-        SchemaTransformation.transformOrFail<any, UInt16>({
+        SchemaTransformation.transformEffect<any, UInt16>({
           decode: (raw) => Effect.succeed(labels[raw] ?? fallback(raw)),
           encode: (value) => readOnlyEncodeFailure(meta.name, value),
         }),

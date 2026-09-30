@@ -54,7 +54,7 @@ Everything this package touches, in one table.
 | `Schema.greaterThanOrEqualTo(n)`                                | `Schema.isGreaterThanOrEqualTo(n)`                                                     |
 | `Schema.lessThanOrEqualTo(n)`                                   | `Schema.isLessThanOrEqualTo(n)`                                                        |
 | `Schema.annotations({ ... })`                                   | `.annotate({ ... })`                                                                   |
-| `Schema.transformOrFail(to, { decode, encode, strict: false })` | `.pipe(Schema.decodeTo(to, SchemaTransformation.transformOrFail({ decode, encode })))` |
+| `Schema.transformOrFail(to, { decode, encode, strict: false })` | `.pipe(Schema.decodeTo(to, SchemaTransformation.transformEffect({ decode, encode })))` |
 | `ParseResult.succeed` / `ParseResult.fail`                      | `Effect.succeed` / `Effect.fail`                                                       |
 | `new ParseResult.Type(ast, actual, msg)`                        | `new SchemaIssue.InvalidValue({ message: msg }, actual)`                               |
 | `ParseResult.ParseError`                                        | `Schema.SchemaError`                                                                   |
@@ -99,7 +99,7 @@ regardless of the `effect` bump.
 
 v4 getters are plainly typed — there is no strictness escape hatch. In practice
 this is an improvement: the transformation type parameters are explicit
-(`transformOrFail<Domain, UInt16>`), so several `strict: false` workarounds
+(`transformEffect<Domain, UInt16>`), so several `strict: false` workarounds
 disappear. The outer `as unknown as Schema.Codec<A, number>` casts that widen
 each factory's return type still remain.
 
