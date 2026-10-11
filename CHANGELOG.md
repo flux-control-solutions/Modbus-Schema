@@ -1,5 +1,11 @@
 # @flux-control/modbus-schema
 
+## 0.4.0
+
+### Minor Changes
+
+- e30d709: Move to `effect` 4.0.3. The `effect` peer dependency is now `^4.0.3`. The `effect` 4.0.0 release candidates are no longer supported.
+
 ## 0.3.0
 
 ### Minor Changes
