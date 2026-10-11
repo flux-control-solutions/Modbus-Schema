@@ -21,8 +21,8 @@ interoperate.
 ### Effect-native API
 
 ```ts
-import { Effect } from 'effect';
 import { makeScaledParam } from '@flux-control/modbus-schema';
+import { Effect } from 'effect';
 
 const entry = makeScaledParam(0x0102, 0.1, {
   name: 'Maximum Output Frequency',
