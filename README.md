@@ -12,9 +12,8 @@ For the complete API reference, see the [GitHub Pages documentation](https://flu
 bun add @flux-control/modbus-schema
 ```
 
-Requires `effect` v4 (`^4.0.0-rc.118`) as a peer dependency. Effect v4 is still a
-release candidate; v3 is not supported, because v3 and v4 schemas do not
-interoperate.
+Requires `effect` v4 (`^4.0.3`) as a peer dependency. Effect v3 is not supported,
+because v3 and v4 schemas do not interoperate.
 
 ## Quick start
 
