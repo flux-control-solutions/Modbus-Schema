@@ -642,6 +642,27 @@ describe('entry metadata', () => {
     expect(entry.decodeSync(1)).toBe('Run');
   });
 
+  it('accepts an explicit domain type argument without a metadata type argument', () => {
+    // Callers that wrote only the domain type argument before this change must
+    // still compile. The metadata type then falls back to RegisterMeta.
+    const scaled = P.makeScaledParam<typeof Schema.Number>(
+      0,
+      0.1,
+      { name: 'Speed', unit: 'Hz' },
+      { domain: Schema.Number },
+    );
+    const signed = P.makeSignedScaledParam<typeof Schema.Number>(
+      1,
+      0.1,
+      { name: 'Offset', unit: 'Hz' },
+      { domain: Schema.Number },
+    );
+    assertType<Equals<typeof scaled.meta, P.RegisterMeta>>();
+    assertType<Equals<typeof signed.meta, P.RegisterMeta>>();
+    expect(scaled.decodeSync(500)).toBe(50);
+    expect(signed.meta.name).toBe('Offset');
+  });
+
   it('keeps a declared metadata type when the caller passes a typed value', () => {
     const meta: P.RegisterMeta = { name: 'Typed', unit: '-' };
     const entry = P.makeParam(0, meta);

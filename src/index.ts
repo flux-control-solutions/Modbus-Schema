@@ -270,7 +270,10 @@ export function makeScaledParam<const M extends RegisterMeta>(
   meta: M,
   opts?: { readonly readOnly?: boolean },
 ): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>, M>;
-export function makeScaledParam<D extends Schema.Codec<any, any>, const M extends RegisterMeta>(
+export function makeScaledParam<
+  D extends Schema.Codec<any, any>,
+  const M extends RegisterMeta = RegisterMeta,
+>(
   register: number,
   factor: number,
   meta: M,
@@ -320,7 +323,7 @@ export function makeSignedScaledParam<const M extends RegisterMeta>(
 ): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>, M>;
 export function makeSignedScaledParam<
   D extends Schema.Codec<any, any>,
-  const M extends RegisterMeta,
+  const M extends RegisterMeta = RegisterMeta,
 >(
   register: number,
   factor: number,
