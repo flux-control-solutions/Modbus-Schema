@@ -593,3 +593,79 @@ describe('readOnly encode', () => {
     }
   });
 });
+
+// ── Entry metadata ─────────────────────────────────────────────
+
+/** Compiles only when `A` and `B` are the same type. */
+type Equals<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+const assertType = <T extends true>(): T | undefined => undefined;
+
+describe('entry metadata', () => {
+  it('exposes the register, the metadata, and the description of every factory', () => {
+    class Flags extends Schema.Class<Flags>('Flags')({ run: Schema.Boolean }) {}
+    const meta = { name: 'Supply Fan', unit: '-', code: 'P-01' };
+    const entries = [
+      P.makeParam(10, meta),
+      P.makeScaledParam(10, 0.1, meta),
+      P.makeSignedScaledParam(10, 0.1, meta),
+      P.makeEnumParam(10, { 0: 'Off', 1: 'On' }, meta),
+      P.makeBitfieldParam(10, Flags, { run: 0 }, meta),
+      P.makeLookupParam(10, { 0: 'OK' }, () => 'Unknown', meta),
+    ];
+    for (const entry of entries) {
+      expect(entry.register).toBe(10);
+      expect(entry.meta).toBe(meta);
+      expect(entry.description).toContain('Supply Fan');
+      expect(entry.description).toContain('Code: P-01');
+      // The entry and the schema annotation carry the same text.
+      expect(findDescription(entry.schema)).toBe(entry.description);
+    }
+  });
+
+  it('keeps the literal metadata types of a metadata literal', () => {
+    const entry = P.makeScaledParam(0x2000, 0.01, { name: 'Frequency Command', unit: 'Hz' });
+    assertType<Equals<typeof entry.meta.name, 'Frequency Command'>>();
+    assertType<Equals<typeof entry.meta.unit, 'Hz'>>();
+    expect(entry.meta.name).toBe('Frequency Command');
+  });
+
+  it('keeps the literal metadata types through fromConfig', () => {
+    const entry = P.fromConfig({
+      register: 0x2001,
+      kind: P.ParamKind.Enum,
+      labels: { 0: 'Stop', 1: 'Run' },
+      meta: { name: 'Run Command', unit: '-', code: '00-01' },
+    });
+    assertType<Equals<typeof entry.meta.code, '00-01'>>();
+    expect(entry.meta.code).toBe('00-01');
+    expect(entry.decodeSync(1)).toBe('Run');
+  });
+
+  it('accepts an explicit domain type argument without a metadata type argument', () => {
+    // Callers that wrote only the domain type argument before this change must
+    // still compile. The metadata type then falls back to RegisterMeta.
+    const scaled = P.makeScaledParam<typeof Schema.Number>(
+      0,
+      0.1,
+      { name: 'Speed', unit: 'Hz' },
+      { domain: Schema.Number },
+    );
+    const signed = P.makeSignedScaledParam<typeof Schema.Number>(
+      1,
+      0.1,
+      { name: 'Offset', unit: 'Hz' },
+      { domain: Schema.Number },
+    );
+    assertType<Equals<typeof scaled.meta, P.RegisterMeta>>();
+    assertType<Equals<typeof signed.meta, P.RegisterMeta>>();
+    expect(scaled.decodeSync(500)).toBe(50);
+    expect(signed.meta.name).toBe('Offset');
+  });
+
+  it('keeps a declared metadata type when the caller passes a typed value', () => {
+    const meta: P.RegisterMeta = { name: 'Typed', unit: '-' };
+    const entry = P.makeParam(0, meta);
+    assertType<Equals<typeof entry.meta, P.RegisterMeta>>();
+  });
+});

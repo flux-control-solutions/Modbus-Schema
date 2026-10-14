@@ -62,6 +62,26 @@ Each factory returns a `ParamEntry` with `schema`, `decode`, `encode`, `decodeSy
 The Effect-based operations fail with `Schema.SchemaError`. The synchronous operations throw `Schema.SchemaError` on invalid input or failed encoding.
 `decode` and `decodeSync` accept unknown input and validate the wire word. `formatted` is the schema's domain-value formatter.
 
+Each entry also exposes the register facts that its factory received:
+
+| Property      | Content                                                                    |
+| ------------- | -------------------------------------------------------------------------- |
+| `register`    | The register address.                                                      |
+| `meta`        | The `RegisterMeta` object, with its extra keys.                            |
+| `description` | The formatted description. The schema has the same text as its annotation. |
+
+The factories keep the literal types of a metadata literal.
+Your editor then shows the register name, unit, and other metadata on hover over `entry.meta`.
+`fromConfig` also keeps them.
+If you pass a value with a declared type, such as `RegisterMeta`, `meta` has that type.
+
+```typescript
+const frequency = makeScaledParam(0x2001, 0.01, { name: 'Frequency Command', unit: 'Hz' });
+
+frequency.meta.name; // type: 'Frequency Command'
+frequency.description; // 'Frequency Command\nRegister: 0x2001\n...'
+```
+
 | Factory                                                           | Description                                                 |
 | ----------------------------------------------------------------- | ----------------------------------------------------------- |
 | `makeParam(register, meta)`                                       | Validate and pass through a branded `UInt16` value          |
@@ -93,7 +113,7 @@ Set `opts.readOnly: true` on scaled, signed scaled, enum, or bitfield factories 
 
 Use `ParamKind` with `fromConfig` to select a factory from a `ParamConfig`. A typed config returns the corresponding entry type. If an untyped runtime config has an unknown `kind`, `fromConfig` returns `undefined`.
 
-`RegisterMeta` requires `name` and `unit`. Optional `default` appears in the schema description and displays `undefined` when omitted. Optional `range` appears for non-enum entries and displays `undefined` when omitted; enum descriptions do not include it. Extra metadata keys also appear as text. Read the description with `Schema.resolveAnnotations(entry.schema)?.description`.
+`RegisterMeta` requires `name` and `unit`. Optional `default` appears in the schema description and displays `undefined` when omitted. Optional `range` appears for non-enum entries and displays `undefined` when omitted; enum descriptions do not include it. Extra metadata keys also appear as text. Read the description with `entry.description`, or with `Schema.resolveAnnotations(entry.schema)?.description`.
 
 See [examples](examples/) for complete programs:
 

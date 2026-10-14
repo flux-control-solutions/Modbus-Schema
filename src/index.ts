@@ -161,8 +161,19 @@ const formatLookupMeta = (register: number, meta: RegisterMeta): string =>
  * Value and wire types are read straight off the schema via `S['Type']` and
  * `S['Encoded']`, so a branded or literal-union domain stays visible to callers.
  */
-export type ParamEntry<S extends Schema.Codec<any, any>> = {
+export type ParamEntry<S extends Schema.Codec<any, any>, M extends RegisterMeta = RegisterMeta> = {
   readonly schema: S;
+  /** Register address that the factory received. */
+  readonly register: number;
+  /**
+   * Register metadata that the factory received.
+   *
+   * The type keeps the literal values of a metadata literal, so an editor shows
+   * the name, unit, and range of the register on hover.
+   */
+  readonly meta: M;
+  /** Formatted register description. The schema carries the same text as its `description` annotation. */
+  readonly description: string;
   /** Decode untrusted input and validate it against the schema. */
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decoder is the validation boundary for untrusted input.
   readonly decode: (raw: unknown) => Effect.Effect<S['Type'], Schema.SchemaError>;
@@ -180,13 +191,26 @@ export type ParamEntry<S extends Schema.Codec<any, any>> = {
 /**
  * The decoded value type of a {@link ParamEntry}.
  */
-export type ParamValueOfEntry<E extends ParamEntry<any>> =
-  E extends ParamEntry<infer S> ? S['Type'] : never;
+export type ParamValueOfEntry<E extends ParamEntry<any, any>> =
+  E extends ParamEntry<infer S, any> ? S['Type'] : never;
 
 // ── Convenience helpers ────────────────────────────────────
 
-const makeEntry = <S extends Schema.Codec<any, any>>(schema: S): ParamEntry<S> => ({
+/** The register facts that every entry exposes beside its schema. */
+interface EntryInfo<M extends RegisterMeta> {
+  readonly register: number;
+  readonly meta: M;
+  readonly description: string;
+}
+
+const makeEntry = <S extends Schema.Codec<any, any>, M extends RegisterMeta>(
+  schema: S,
+  info: EntryInfo<M>,
+): ParamEntry<S, M> => ({
   schema,
+  register: info.register,
+  meta: info.meta,
+  description: info.description,
   decode: Schema.decodeUnknownEffect(schema),
   encode: Schema.encodeEffect(schema),
   formatted: Schema.toFormatter(schema),
@@ -218,8 +242,13 @@ export enum ParamKind {
  * @param meta - Register description metadata.
  * @returns An entry that validates and passes through unsigned 16-bit values.
  */
-export const makeParam = (register: number, meta: RegisterMeta): ParamEntry<UInt16Schema> =>
-  makeEntry(UInt16.annotate({ description: formatMeta(register, meta) }));
+export const makeParam = <const M extends RegisterMeta>(
+  register: number,
+  meta: M,
+): ParamEntry<UInt16Schema, M> => {
+  const description = formatMeta(register, meta);
+  return makeEntry(UInt16.annotate({ description }), { register, meta, description });
+};
 
 /**
  * Scaled parameter where wire = domain / factor.
@@ -235,26 +264,30 @@ export const makeParam = (register: number, meta: RegisterMeta): ParamEntry<UInt
  * @param opts - Optional domain schema and read-only setting.
  * @returns An entry whose decoded values pass through the selected domain schema.
  */
-export function makeScaledParam(
+export function makeScaledParam<const M extends RegisterMeta>(
   register: number,
   factor: number,
-  meta: RegisterMeta,
+  meta: M,
   opts?: { readonly readOnly?: boolean },
-): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>>;
-export function makeScaledParam<D extends Schema.Codec<any, any>>(
+): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>, M>;
+export function makeScaledParam<
+  D extends Schema.Codec<any, any>,
+  const M extends RegisterMeta = RegisterMeta,
+>(
   register: number,
   factor: number,
-  meta: RegisterMeta,
+  meta: M,
   opts: { readonly domain: D; readonly readOnly?: boolean },
-): ParamEntry<Schema.decodeTo<D, UInt16Schema>>;
+): ParamEntry<Schema.decodeTo<D, UInt16Schema>, M>;
 export function makeScaledParam(
   register: number,
   factor: number,
   meta: RegisterMeta,
   opts?: { readonly domain?: Schema.Codec<any, any>; readonly readOnly?: boolean },
-): ParamEntry<any> {
+): ParamEntry<any, RegisterMeta> {
   const domain = opts?.domain ?? Schema.Number;
   const readOnly = opts?.readOnly ?? false;
+  const description = formatScaledMeta(register, meta, factor);
   return makeEntry(
     UInt16.pipe(
       Schema.decodeTo(
@@ -270,7 +303,8 @@ export function makeScaledParam(
               (value) => Effect.succeed(Math.round(value / factor) as UInt16),
         }),
       ),
-    ).annotate({ description: formatScaledMeta(register, meta, factor) }),
+    ).annotate({ description }),
+    { register, meta, description },
   );
 }
 
@@ -281,26 +315,30 @@ export function makeScaledParam(
  * when `value / factor` rounds to a word outside -32768..32767.
  * Supply a finite, non-zero factor. The factory does not validate it.
  */
-export function makeSignedScaledParam(
+export function makeSignedScaledParam<const M extends RegisterMeta>(
   register: number,
   factor: number,
-  meta: RegisterMeta,
+  meta: M,
   opts?: { readonly readOnly?: boolean },
-): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>>;
-export function makeSignedScaledParam<D extends Schema.Codec<any, any>>(
+): ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>, M>;
+export function makeSignedScaledParam<
+  D extends Schema.Codec<any, any>,
+  const M extends RegisterMeta = RegisterMeta,
+>(
   register: number,
   factor: number,
-  meta: RegisterMeta,
+  meta: M,
   opts: { readonly domain: D; readonly readOnly?: boolean },
-): ParamEntry<Schema.decodeTo<D, UInt16Schema>>;
+): ParamEntry<Schema.decodeTo<D, UInt16Schema>, M>;
 export function makeSignedScaledParam(
   register: number,
   factor: number,
   meta: RegisterMeta,
   opts?: { readonly domain?: Schema.Codec<any, any>; readonly readOnly?: boolean },
-): ParamEntry<any> {
+): ParamEntry<any, RegisterMeta> {
   const domain = opts?.domain ?? Schema.Number;
   const readOnly = opts?.readOnly ?? false;
+  const description = formatScaledMeta(register, meta, factor);
   return makeEntry(
     UInt16.pipe(
       Schema.decodeTo(
@@ -333,7 +371,8 @@ export function makeSignedScaledParam(
               },
         }),
       ),
-    ).annotate({ description: formatScaledMeta(register, meta, factor) }),
+    ).annotate({ description }),
+    { register, meta, description },
   );
 }
 
@@ -349,17 +388,18 @@ export function makeSignedScaledParam(
  * @returns An entry that maps known codes and labels.
  * @throws {Error} When `labels` has no values.
  */
-export const makeEnumParam = <Domain extends string>(
+export const makeEnumParam = <Domain extends string, const M extends RegisterMeta = RegisterMeta>(
   register: number,
   labels: Record<number, Domain>,
-  meta: RegisterMeta,
+  meta: M,
   opts?: { readonly readOnly?: boolean },
-): ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>> => {
+): ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>, M> => {
   const values = [...new Set(Object.values(labels))];
   if (values.length === 0) {
     throw new Error(`${meta.name}: an enum parameter needs at least one label.`);
   }
   const readOnly = opts?.readOnly ?? false;
+  const description = formatEnumMeta(register, meta, labels);
   // SAFETY: two assertions here, both resting on the same fact. The length check
   // above rules out the empty case, which is the only way `values` fails to be
   // the non-empty tuple `Literals` wants; the trailing assertion then names the
@@ -398,10 +438,9 @@ export const makeEnumParam = <Domain extends string>(
               },
         }),
       ),
-    ).annotate({
-      description: formatEnumMeta(register, meta, labels),
-    }),
-  ) as ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>>;
+    ).annotate({ description }),
+    { register, meta, description },
+  ) as ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>, M>;
 };
 
 // ── Bitfield factory ──────────────────────────────────────
@@ -436,7 +475,10 @@ export type BitfieldSchema<F extends AnyBitfieldClass> = Schema.decodeTo<
  * A bitfield entry adds a generated `patch` schema (all-optional booleans) and
  * a `merge` function for read-modify-write semantics.
  */
-export type BitfieldParamEntry<F extends AnyBitfieldClass> = ParamEntry<BitfieldSchema<F>> & {
+export type BitfieldParamEntry<
+  F extends AnyBitfieldClass,
+  M extends RegisterMeta = RegisterMeta,
+> = ParamEntry<BitfieldSchema<F>, M> & {
   readonly patch: AnyPatchClass;
   readonly merge: (
     base: InstanceType<F>,
@@ -457,14 +499,18 @@ export type BitfieldParamEntry<F extends AnyBitfieldClass> = ParamEntry<Bitfield
  * {@link readOnlyEncodeFailure}. The entry still exposes `patch` and `merge`.
  * Use bit positions 0 through 15. The factory does not validate positions.
  */
-export const makeBitfieldParam = <F extends AnyBitfieldClass>(
+export const makeBitfieldParam = <
+  F extends AnyBitfieldClass,
+  const M extends RegisterMeta = RegisterMeta,
+>(
   register: number,
   flagsClass: F,
   bitLayout: Record<string & keyof InstanceType<F>, number>,
-  meta: RegisterMeta,
+  meta: M,
   opts?: { readonly readOnly?: boolean },
-): BitfieldParamEntry<F> => {
+): BitfieldParamEntry<F, M> => {
   const readOnly = opts?.readOnly ?? false;
+  const description = formatBitfieldMeta(register, meta);
   // SAFETY: `Object.keys` types its result `string[]` because it cannot know the
   // key set. Every key here comes from `bitLayout`, whose keys are exactly the
   // string-named fields of the flag class.
@@ -506,7 +552,7 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
             },
       }),
     ),
-  ).annotate({ description: formatBitfieldMeta(register, meta) });
+  ).annotate({ description });
 
   const patchFields: Record<string, Schema.Struct.Fields[string]> = {};
   for (const k of keys) patchFields[k] = Schema.optional(Schema.Boolean);
@@ -534,10 +580,10 @@ export const makeBitfieldParam = <F extends AnyBitfieldClass>(
   // `BitfieldSchema<F>`; this names that same shape plus the two bitfield-only
   // members spread in beside it.
   return {
-    ...makeEntry(schema),
+    ...makeEntry(schema, { register, meta, description }),
     patch: patchSchema,
     merge,
-  } as BitfieldParamEntry<F>;
+  } as BitfieldParamEntry<F, M>;
 };
 
 // ── Lookup factory ────────────────────────────────────────
@@ -563,14 +609,15 @@ export type LookupSchema<Domain extends string> = Schema.decodeTo<
  * registers that report fault/alarm/model codes as human-readable text.
  * The optional `domain` schema supplies a target for decoded strings.
  */
-export const makeLookupParam = <Domain extends string>(
+export const makeLookupParam = <Domain extends string, const M extends RegisterMeta = RegisterMeta>(
   register: number,
   labels: Record<number, Domain>,
   fallback: (raw: number) => Domain,
-  meta: RegisterMeta,
+  meta: M,
   opts?: { readonly domain?: Schema.Codec<Domain, any, any, any> },
-): ParamEntry<LookupSchema<Domain>> => {
+): ParamEntry<LookupSchema<Domain>, M> => {
   const domain = opts?.domain ?? Schema.String;
+  const description = formatLookupMeta(register, meta);
   // SAFETY: `transformEffect<any, UInt16>` erases the domain side, because the
   // optional `domain` schema is only known as a codec here. The trailing
   // assertion names the domain the caller passed back onto the result.
@@ -583,7 +630,8 @@ export const makeLookupParam = <Domain extends string>(
           encode: (value) => readOnlyEncodeFailure(meta.name, value),
         }),
       ),
-    ).annotate({ description: formatLookupMeta(register, meta) }) as LookupSchema<Domain>,
+    ).annotate({ description }) as LookupSchema<Domain>,
+    { register, meta, description },
   );
 };
 
@@ -680,20 +728,20 @@ export type ParamEntryOfConfig<C extends ParamConfig<any>> = C extends {
   readonly kind: ParamKind.Scaled | ParamKind.SignedScaled;
 }
   ? C extends { readonly domain: infer D extends Schema.Codec<any, any> }
-    ? ParamEntry<Schema.decodeTo<D, UInt16Schema>>
-    : ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>>
+    ? ParamEntry<Schema.decodeTo<D, UInt16Schema>, C['meta']>
+    : ParamEntry<Schema.decodeTo<Schema.Number, UInt16Schema>, C['meta']>
   : C extends EnumParamConfig<any, infer Domain>
-    ? ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>>
+    ? ParamEntry<Schema.decodeTo<Schema.Literals<[Domain, ...Domain[]]>, UInt16Schema>, C['meta']>
     : C extends BitfieldParamConfig<any, infer F>
-      ? BitfieldParamEntry<F & AnyBitfieldClass>
+      ? BitfieldParamEntry<F & AnyBitfieldClass, C['meta']>
       : C extends LookupParamConfig<any, infer Domain>
-        ? ParamEntry<LookupSchema<Domain>>
-        : ParamEntry<UInt16Schema>;
+        ? ParamEntry<LookupSchema<Domain>, C['meta']>
+        : ParamEntry<UInt16Schema, C['meta']>;
 
 // ── fromConfig dispatch ──────────────────────────────────────
 
 /** Build the entry selected by the configuration's `kind` field. */
-export function fromConfig<C extends ParamConfig<any>>(config: C): ParamEntryOfConfig<C>;
+export function fromConfig<const C extends ParamConfig<any>>(config: C): ParamEntryOfConfig<C>;
 /**
  * The implementation signature is wider than the overload above: an unrecognized
  * `kind` yields `undefined`, which no `ParamEntryOfConfig<C>` includes. Only a
@@ -701,7 +749,7 @@ export function fromConfig<C extends ParamConfig<any>>(config: C): ParamEntryOfC
  */
 export function fromConfig(
   config: ParamConfig<any>,
-): ParamEntry<any> | BitfieldParamEntry<any> | undefined {
+): ParamEntry<any, any> | BitfieldParamEntry<any, any> | undefined {
   switch (config.kind) {
     case ParamKind.UInt16:
       return makeParam(config.register, config.meta);
